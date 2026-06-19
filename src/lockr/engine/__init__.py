@@ -1,6 +1,5 @@
-"""Shared thermodynamic engine — the single source of truth for the LOCKR math.
-
-charge / liability / thermo all import from models so results flow between the
-two analysis modules (sequence liability -> K_CK -> fold-change) without anyone
-re-deriving an equation. Nothing else in the tool computes physics.
+"""
+This is a thermodynamic engine, and is the source for all the math related to the LOCKR system.
+It takes into account the liability/charge of the binder when integrated with the latch. 
+This helps in identifying any potential problems in other interatcions!!
 """
