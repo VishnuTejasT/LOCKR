@@ -56,14 +56,17 @@ def f_base(params: SensorParams = DEFAULT_PARAMS) -> float:
 
 
 def _saturating_fc(pull: float, params: SensorParams) -> float:
-    # FC at theta -> 1 (saturating target): the realised ceiling for this pull.
+    # FC at theta -> 1 (saturating target): the realised max FC for this finite
+    # pull. Distinct from params.luckey_ratio (the dominance ratio) and from the
+    # true pull->infinity asymptote (1+K_open+luckey_ratio)/K_open, which this
+    # codebase doesn't compute anywhere.
     koe = k_open_eff(params.K_open, pull, 1.0)
     return _f_open(koe, params) / _f_open(params.K_open, params)
 
 
 def max_fold_change(Kd: float, pull: float, params: SensorParams = DEFAULT_PARAMS) -> float:
-    # Kd is unused on purpose — the ceiling is cage-set, not Kd-set; kept in the
-    # signature to make that explicit at call sites (mirrors fold_change's args).
+    # Kd is unused on purpose — this max is cage-set, not Kd-set; kept in the
+    # signature to mirror fold_change's args at call sites.
     return _saturating_fc(pull, params)
 
 

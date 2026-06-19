@@ -24,6 +24,17 @@ def test_original_kck_estimate():
     assert r.K_CK_estimate == pytest.approx(3.3e-5, rel=0.05)
 
 
+def test_original_kck_matches_corrected_documentation():
+    # Hand-verified after a documentation error: my PDFs previously and
+    # incorrectly said K_CK_grafted ~3e-12 for the charged original binder.
+    # By hand: exp(-(10.905-4.8)/0.592) = 3.32e-5, not 3e-12 -- the PDFs have
+    # since been corrected to 3.32e-5. This pins that corrected value so a
+    # future reader isn't surprised by a "weak"-looking number and doesn't
+    # accidentally regress the engine back toward the old wrong figure.
+    r = liability.scan_liability(ORIGINAL, preserve_positions=calibration.PFLDH_INTERFACE)
+    assert r.K_CK_estimate == pytest.approx(3.32e-5, rel=1e-2)
+
+
 def test_optimized_has_no_liabilities_and_restores_kck():
     r = liability.scan_liability(OPTIMIZED, preserve_positions=calibration.PFLDH_INTERFACE)
     assert r.liabilities == []

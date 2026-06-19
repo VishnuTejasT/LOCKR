@@ -14,13 +14,13 @@ KD_V22 = 42.21e-15
 
 
 @pytest.mark.parametrize("pull,expected", [(10, 11), (20, 21), (30, 31)])
-def test_fold_change_ceiling_v10(pull, expected):
+def test_max_fold_change_v10(pull, expected):
     assert round(thermo.max_fold_change(KD_V10, pull)) == expected
 
 
 @pytest.mark.parametrize("pull,expected", [(10, 11), (20, 21), (30, 31)])
-def test_fold_change_ceiling_v22(pull, expected):
-    # Same ceiling as v1.0 -- set by the cage, not by Kd.
+def test_max_fold_change_v22(pull, expected):
+    # Same max FC as v1.0 at each pull -- set by the cage, not by Kd.
     assert round(thermo.max_fold_change(KD_V22, pull)) == expected
 
 

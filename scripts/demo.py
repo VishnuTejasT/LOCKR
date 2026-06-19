@@ -22,13 +22,14 @@ def section(title):
 
 
 def fold_change_table():
-    section("Fold-change ceiling: v1.0 vs v2.2")
+    section("Max fold-change at saturating target: v1.0 vs v2.2")
     print(f"{'pull':>6} {'v1.0 (Kd=100pM)':>18} {'v2.2 (Kd=42.21fM)':>20}")
     for pull in (10, 20, 30):
         fc_v10 = thermo.max_fold_change(KD_V10, pull)
         fc_v22 = thermo.max_fold_change(KD_V22, pull)
         print(f"{pull:>6} {fc_v10:>17.1f}x {fc_v22:>19.1f}x")
-    print("Same ceiling at every pull -- it's cage-set (K_open/K_CK), not Kd-set.")
+    print("Same max FC at every pull -- it's cage-set (K_open/K_CK), not Kd-set.")
+    print("(Not the lucKey/K_CK dominance ratio -- see the regime diagnosis below.)")
 
 
 def regime_diagnosis():
