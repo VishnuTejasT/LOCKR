@@ -12,6 +12,9 @@ src/lockr/engine/charge.py
 src/lockr/engine/liability.py
 src/lockr/engine/models.py
 src/lockr/engine/thermo.py
-tests/test_charge.py
-tests/test_liability.py
-tests/test_thermo.py
+tests/test_charge_eclipse.py
+tests/test_charge_general.py
+tests/test_liability_eclipse.py
+tests/test_liability_general.py
+tests/test_thermo_eclipse.py
+tests/test_thermo_general.py

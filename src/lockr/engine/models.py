@@ -128,3 +128,52 @@ class VariantSuggestion:
     liability_score: float = 0.0
     liability_band: str = "low"
     K_CK_estimate: float = 0.0
+
+
+# --- Phase 1.5: assembly.py's input types. Positions are 1-indexed, inclusive,
+# matching BinderSequence.residues() above. liability.py never imports these;
+# the dependency only runs the other way (assembly.py -> models.py).
+
+@dataclass
+class ProtectedRegion:
+    """A motif that must never be altered -- e.g. ECLIPSE's SmBiT fragment.
+
+    Hard constraint, not a score: unlike liability.py's preserve_positions
+    (a soft tradeoff against affinity), mutating this kills function outright.
+    motif/start/end are caller-supplied; nothing here assumes SmBiT or any
+    other specific reporter.
+    """
+
+    motif: str
+    start: int
+    end: int
+    label: str = ""
+
+
+@dataclass
+class LatchWindow:
+    start: int
+    end: int
+    expected_length: int | None = None
+
+
+@dataclass
+class GraftSpec:
+    """One graft into a latch window.
+
+    binder/start cover the single-binder case (ECLIPSE v1.0). spacer and
+    linker/binder2 are optional named segments for richer assemblies -- spacer
+    generalizes ECLIPSE's literal 'DA' gap between SmBiT and the binder;
+    linker+binder2 generalizes the tandem v2.2 case. None of these values are
+    assumed; they're just slots a caller fills in for their own assembly.
+    """
+
+    binder: str
+    start: int
+    spacer: str | None = None
+    spacer_start: int | None = None
+    linker: str | None = None
+    linker_start: int | None = None
+    binder2: str | None = None
+    binder2_start: int | None = None
+    label: str = ""

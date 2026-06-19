@@ -230,10 +230,10 @@ Cormorant Garamond and DM Sans/Inter already load on the wiki. **Add IBM Plex Mo
 
 **A. Verdict card** (the thing a non-coder reads first)
 - **Hero fold-change** (Cormorant 40): `38×`.
-- Sub-line: ceiling value `[lucKey]/K_CK = 50×` and `% of ceiling`.
+- Sub-line: dominance ratio `[lucKey]/K_CK = 50` and `% of dominance ratio` — **not labeled "ceiling."** This number is a diagnostic threshold (it tells you whether K_open changes will move fold-change), not an achievable fold-change target. The true asymptotic max as pull→∞ is `(1+K_open+lucKey/K_CK)/K_open`, a much larger and practically irrelevant number given realistic pull values (10–30) — don't surface it as a headline figure; it would mislead a wet-lab user into thinking 50× (or whatever the ratio is) is the ceiling they're aiming for, when realistic fold-change at typical pull is much closer to `(1+pull)`.
 - **Regime banner** — full-width colored callout with icon + plain-language verdict (exact copy §9.3). Three states: `key-limited` (amber), `K_open-limited` (green/info), `mixed` (neutral).
 
-**B. Plots** — see §7. Primary: fold-change vs [lucKey] (log-x) with dashed ceiling line and a marker at the operating point. Secondary: fold-change vs K_open, which visually demonstrates whether latch tuning moves the curve (in the key-limited regime it's flat — that's the point).
+**B. Plots** — see §7. Primary: fold-change vs [lucKey] (log-x) with a dashed reference line at the dominance ratio and a marker at the operating point. Secondary: fold-change vs K_open, which visually demonstrates whether latch tuning moves the curve (in the key-limited regime it's flat — that's the point).
 
 **C. Recommendations** — regime-specific bullets (copy §9.3), e.g. for key-limited: raise [lucKey], improve K_CK; *don't* bother with latch mutations.
 
@@ -326,18 +326,21 @@ All endpoints are local (`http://localhost:PORT`), synchronous, JSON in/out. Uni
 ```json
 {
   "fold_change": 38.2,
-  "ceiling": 50.0,
-  "fraction_of_ceiling": 0.764,
+  "dominance_ratio": 50.0,
+  "fraction_of_dominance_ratio": 0.764,
   "regime": "key_limited",
   "limiting_factor": "luckey_over_kck",
-  "verdict": "You are near the [lucKey]/K_CK ceiling...",
+  "verdict": "You are near the lucKey/K_CK dominance threshold...",
   "recommendations": [
-    "Increase [lucKey] to raise the ceiling.",
+    "Increase lucKey to raise the dominance ratio.",
     "Improve cage-key affinity (lower K_CK).",
     "Latch (K_open) mutations will not raise fold-change here."
   ]
 }
 ```
+Note: `dominance_ratio` (= `lucKey/K_CK`) is a diagnostic threshold, NOT an achievable
+fold-change value. Do not call it "ceiling" anywhere in the response or the UI that
+consumes it — see §4 for why.
 
 ### 6.3 `POST /sweep`
 **Request**
@@ -352,7 +355,7 @@ All endpoints are local (`http://localhost:PORT`), synchronous, JSON in/out. Uni
 {
   "param": "luckey",
   "scale": "log",
-  "points": [ { "x": 1.0, "fold_change": 1.1, "ceiling": 0.1 } ],
+  "points": [ { "x": 1.0, "fold_change": 1.1, "dominance_ratio": 0.1 } ],
   "operating_point": { "x": 500.0, "fold_change": 38.2 }
 }
 ```
@@ -381,7 +384,7 @@ Library: Recharts (or Plotly) in the frontend; matplotlib mirrors for CLI/figure
 - **X axis:** [lucKey], **log scale**, nM, range covering ≥3 decades around the operating point (e.g. 1–10,000 nM). Ticks at decades; minor ticks logged.
 - **Y axis:** fold-change, linear (or log if it spans decades), starts at 1 (no change), not 0.
 - **Series:** solid `--plot-line` fold-change curve.
-- **Ceiling reference:** dashed `--plot-ceiling` horizontal line at `[lucKey]/K_CK` *for the current K_CK* — actually a curve since ceiling scales with [lucKey]; render it as a faint dashed line the main curve asymptotes toward, labeled "ceiling".
+- **Dominance-ratio reference:** dashed `--plot-ceiling` line/curve at `[lucKey]/K_CK` *for the current K_CK*, labeled **"lucKey/K_CK dominance ratio"** — never "ceiling." This is a diagnostic threshold the realistic curve sits near at typical pull values; it is not the curve's true mathematical asymptote (that's `(1+K_open+lucKey/K_CK)/K_open`, a much larger and not practically meaningful number — don't plot it).
 - **Operating-point marker:** filled `--plot-marker` dot at the user's [lucKey], with a callout label showing the value. 
 - **Zones (optional):** faint background shading where fold-change is poor (<2×, `--plot-zone-bad`) vs strong.
 - **Tooltip:** on hover, "[lucKey] = X nM → fold-change Y×".
@@ -398,7 +401,7 @@ Library: Recharts (or Plotly) in the frontend; matplotlib mirrors for CLI/figure
 ### Axis/number rules
 - Every concentration axis: **log scale by default**, auto unit scaling in tick labels (fM/pM/nM/µM) — never raw `0.000042`.
 - Linear toggle available per plot.
-- Colorblind-safe: don't rely on red/green alone in plots; ceiling is distinguished by dash pattern, zones by position + subtle hue.
+- Colorblind-safe: don't rely on red/green alone in plots; the dominance-ratio reference is distinguished by dash pattern, zones by position + subtle hue.
 
 ---
 
@@ -435,15 +438,15 @@ Loading: computations are sub-second, but show a subtle inline spinner on the Ca
 - High / Severe: **"High liability."** "Multiple acidic residues in the sensitive region are likely to collapse cage-key affinity (K_CK). Strongly consider the suggested charge-optimized variant."
 
 ### 9.3 Regime verdicts (Calculator)
-- **Key-limited:** banner title "Key-limited regime." Body: "Your fold-change is near the [lucKey]/K_CK ceiling. Tuning the latch (K_open) won't raise it — see how the K_open curve stays flat. To improve dynamic range, raise [lucKey] or tighten cage-key affinity (lower K_CK)."
-  - Recommendations: "Increase [lucKey] to lift the ceiling." · "Improve cage-key affinity (lower K_CK)." · "Latch / K_open mutations will not help in this regime."
-- **K_open-limited:** banner title "K_open-limited regime." Body: "You have headroom below the [lucKey]/K_CK ceiling. Tuning the latch to favor the open state on target binding will increase fold-change."
+- **Key-limited:** banner title "Key-limited regime." Body: "Your fold-change is near the lucKey/K_CK dominance threshold (a diagnostic ratio, not an achievable target). Tuning the latch (K_open) won't raise it — see how the K_open curve stays flat. To improve dynamic range, raise [lucKey] or tighten cage-key affinity (lower K_CK)."
+  - Recommendations: "Increase [lucKey] — this raises the dominance threshold." · "Improve cage-key affinity (lower K_CK)." · "Latch / K_open mutations will not help in this regime."
+- **K_open-limited:** banner title "K_open-limited regime." Body: "You have headroom below the lucKey/K_CK dominance threshold. Tuning the latch to favor the open state on target binding will increase fold-change."
   - Recommendations: "Engineer the latch to raise K_open(ON) relative to K_open(OFF)." · "You're not key-limited yet — [lucKey] increases give diminishing returns."
-- **Mixed:** banner title "Mixed regime." Body: "Both the latch (K_open) and the key (([lucKey]/K_CK)) are constraining fold-change. Improvements to either will help; the plots show which gives more."
+- **Mixed:** banner title "Mixed regime." Body: "Both the latch (K_open) and the key (lucKey/K_CK) are constraining fold-change. Improvements to either will help; the plots show which gives more."
 
 ### 9.4 Empty states
 - Scanner results pane: "Enter a binder sequence and run a scan to see its charge-liability profile and a suggested optimized variant."
-- Calculator results pane: "Set your parameters and calculate to see predicted fold-change, the [lucKey]/K_CK ceiling, and what's limiting your sensor."
+- Calculator results pane: "Set your parameters and calculate to see predicted fold-change, the lucKey/K_CK dominance ratio, and what's limiting your sensor."
 
 ### 9.5 Key tooltips
 - K_CK (`?`): "Cage-key dissociation constant — how tightly lucKey binds the open cage. Lower = tighter binding."
@@ -470,7 +473,7 @@ Loading: computations are sub-second, but show a subtle inline spinner on the Ca
 - **Contrast:** all text meets WCAG AA on `--canvas`/`--surface`; brand-700 on white passes for large/medium text.
 - **Color independence:** liability bands and regimes always pair color with a text label and an icon — never color alone (covers colorblind users; the danger/brand red overlap is fine because text labels disambiguate).
 - **Keyboard:** full tab order; Scan/Calculate reachable and Enter-submittable; sweep range handles operable by arrow keys; tooltips focusable.
-- **Screen readers:** inputs have `<label>`s and `aria-describedby` for help text; the verdict banner uses `role="status"` so the regime conclusion is announced after Calculate; plots have a text-summary fallback ("fold-change rises from 1× to a ceiling of 50× as [lucKey] increases").
+- **Screen readers:** inputs have `<label>`s and `aria-describedby` for help text; the verdict banner uses `role="status"` so the regime conclusion is announced after Calculate; plots have a text-summary fallback ("fold-change rises from 1× toward the lucKey/K_CK dominance ratio of 50 as [lucKey] increases").
 - **Focus visible:** the `--focus-ring` is never removed.
 - **Reduced motion:** respect `prefers-reduced-motion` — disable the input shake and plot transitions.
 
@@ -494,7 +497,7 @@ Loading: computations are sub-second, but show a subtle inline spinner on the Ca
   <CalculatorTab>
     <ParamField>                numeric input w/ units, sci-notation, sweep toggle
     <CalculatorAdvanced>        target binding
-    <VerdictCard>               hero FC, ceiling, regime banner
+    <VerdictCard>               hero FC, dominance ratio, regime banner
     <SweepPlot>                 log-axis line chart (reused for both plots)
     <Recommendations>
   <ChainPill>                   provenance badge on K_CK
