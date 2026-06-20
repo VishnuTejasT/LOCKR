@@ -3,6 +3,9 @@
 General LOCKR/lucCage containers — no field assumes a specific target, binder,
 or cage variant. ECLIPSE-specific data lives in calibration.py and the test
 files, not here.
+
+This code contains shared data objects for the engine, based on the general template LucCage LOCKR containers, with no asusmptions for integrated binders, 
+targets, or cage variants. ECLIPSE-specific data lives in calibration.py and the test files, not here. Specifc data is also given in other code.
 """
 
 from __future__ import annotations

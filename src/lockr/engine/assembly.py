@@ -1,12 +1,7 @@
-"""Sequence-level structural/assembly checks -- position bookkeeping, not folding.
-
-Generalizes my own ECLIPSE pipeline's manual verification (Complete
-Documentation Script 4's sequence validation, Script 6's six-point check) into
-checks that work for any protected motif, any latch window, any graft. No
-structure prediction here -- this is the "did I actually build the sequence I
-think I built" layer that sits ALONGSIDE the thermo/charge/liability engine,
-not inside it. liability.py never imports anything from this module; the one
-cross-module link (filter_safe_variants) runs the other way.
+"""
+This module contains code for checking whether the LOCKR sequence was properly grafted, and filtered to avoid
+the overlaying of integrations over protected regions of the LOCKR latch, like the SmBit luciferase from the LucCage.
+It also checks to see whether the protected region is intact,a nd the sequence of the protected area is where it is supposed to be (residue-wise).
 """
 
 from __future__ import annotations

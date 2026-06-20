@@ -1,11 +1,8 @@
 """General LOCKR fold-change model, free-energy helpers, regime diagnostic.
 
-Three-state framework (cage closed/open, lucKey competing for the open state,
-governed by K_open/K_CK) is from Langan et al. 2019 (Nature 572) and
-Quijano-Rubio et al. 2021 (Nature 591) — applies to any lucCage-based sensor.
-The closed-form fold-change expression below is my own instantiation of that
-framework (ECLIPSE Thermodynamics doc, Section 7); not verbatim from either
-paper. ECLIPSE numbers validating it live in tests/test_thermo_eclipse.py.
+This module runs a 3-state framework thats calculates the following: cage close/open energy, luckey competition in open/close states
+and overall system fold-change. Based of Langan et al. 2019 (Nature 572) and Quijano-Rubio et al. 2021 (Nature 591)
+and apploies to any LucCage based sensor system. All eclispe specific numbers live in tests/test_thermo_eclipse.py
 """
 
 from __future__ import annotations

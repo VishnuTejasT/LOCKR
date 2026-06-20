@@ -1,10 +1,11 @@
-"""General charge-liability scan and K_CK penalty estimate.
+"""
+This module identifies whether the grafted binder weakens K_CK interactions and propsoes a fix to improve K_CK 
+thermodynamics by mutating aspartic acids and glutamic acids with alanines to neutralize the charge of the 
+binder itself. This penalty portion is derived straight from team ECLIPSE's binde roptimization pipeline framework,
+inspired by Langan 2019 / Quijano-Rubio 2021. These optimizations can be seen in claibration.py. In Addition, the optimized and 
+suggested seuqence is passed on to assembly.py to verify whether the optimization interacts or overlaps with 
+protected region of the LOCKR latch.
 
-Flags acidic residues outside caller-supplied preserve_positions and estimates
-their effect on K_CK. The penalty model is my own instantiation of the lucCage
-framework (Langan 2019 / Quijano-Rubio 2021), calibrated on the ECLIPSE anchor
-sequences in calibration.py — override charge_penalty_per_residue for other
-systems as more data comes in.
 """
 
 from __future__ import annotations

@@ -1,6 +1,5 @@
-"""Net charge at pH and a coarse helix-propensity check for any sequence.
-
-General amino-acid chemistry — no target or binder assumed.
+"""This code showd the net charge at pH and a coarse helix-propensity as a checking step for ANY sequence...
+This is not specific to ECLIPSE< but is instead generalized to any sequence based on acid-base chemistyr.
 """
 
 from __future__ import annotations
