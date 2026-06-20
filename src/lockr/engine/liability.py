@@ -16,13 +16,12 @@ from . import calibration
 from .charge import net_charge
 from .models import BinderSequence, K_CK_DEFAULT, Liability, LiabilityReport, RT_37C, VariantSuggestion
 
-# D/E -> A is the literal ECLIPSE fix; D->N/E->Q keeps shape and H-bonding.
+#D/E -> A was the fix for ECLIPSE, but D->N/E->Q is way more conservative and keeps shape and hydrogen bonding too.
 _POLICIES = {
     "neutralizing": {"D": "A", "E": "A"},
     "conservative": {"D": "N", "E": "Q"},
 }
 
-# Liability-score band cutoffs (0-100 scale), from the UI gauge design — not biology.
 _BAND_LOW_MAX = 33
 _BAND_MODERATE_MAX = 66
 
@@ -54,10 +53,9 @@ def scan_liability(sequence, preserve_positions,
                    charge_penalty_per_residue: float = calibration.PENALTY_PER_ACIDIC,
                    K_CK_reference: float = K_CK_DEFAULT, RT: float = RT_37C,
                    window=None, ph: float = 7.4, score_scale: float = 2.0) -> LiabilityReport:
-    """Flag acidic liabilities outside preserve_positions and estimate K_CK.
-
-    preserve_positions: the caller's own target-contact residues (1-indexed).
-    ECLIPSE's PfLDH interface ([1,2,11,12,15]) is an example, not a default.
+    """
+    This will flag all acidic liability residues outside of the preserved position while also 
+    estimating the K_CK.
     """
     if not isinstance(sequence, BinderSequence):
         sequence = BinderSequence(sequence)
