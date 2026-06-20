@@ -7,8 +7,12 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: numpy>=1.23
 Requires-Dist: scipy>=1.9
+Requires-Dist: fastapi>=0.110
+Requires-Dist: uvicorn>=0.29
+Requires-Dist: pydantic>=2
 Provides-Extra: test
 Requires-Dist: pytest>=7; extra == "test"
+Requires-Dist: httpx>=0.27; extra == "test"
 
 # LOCKR Biosensor Design Tool
 

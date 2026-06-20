@@ -1,8 +1,8 @@
 """Run-through of the ECLIPSE validation case using the general lockr engine.
 
-Nothing here is special-cased in the engine itself -- this script just calls
-thermo/liability with ECLIPSE's own numbers (calibration.py) to show the tool
-reproducing the documented results end to end.
+This is a demo of how our team used this engine to run thermodynamic calculations 
+for our PfLB-1 Integrated LOCKR design. It has been successful and corectly reproduces results I 
+received when calculation were done before.
 
 Run: conda activate igem && python scripts/demo.py
 """
@@ -28,8 +28,8 @@ def fold_change_table():
         fc_v10 = thermo.max_fold_change(KD_V10, pull)
         fc_v22 = thermo.max_fold_change(KD_V22, pull)
         print(f"{pull:>6} {fc_v10:>17.1f}x {fc_v22:>19.1f}x")
-    print("Same max FC at every pull -- it's cage-set (K_open/K_CK), not Kd-set.")
-    print("(Not the lucKey/K_CK dominance ratio -- see the regime diagnosis below.)")
+    print("Same max FC at every pull... it's the cage-set (K_open/K_CK), and not Kd-set.")
+    print("(This isnt the lucKey/K_CK dominance ratio, so see the regime diagnosis below.)")
 
 
 def regime_diagnosis():
@@ -38,7 +38,7 @@ def regime_diagnosis():
     print(f"lucKey/K_CK dominance ratio : {r_500.luckey_dominance_ratio:.1f}")
     print(f"realised max fold-change    : {r_500.max_fold_change:.1f}x")
     print(f"regime                      : {r_500.regime}")
-    print(f"latch tuning helps?         : {r_500.latch_tuning_helps}")
+    print(f"latch tuning helps???         : {r_500.latch_tuning_helps}")
     print(f"verdict: {r_500.verdict}")
 
     section("Regime diagnosis at 10 nM lucKey (same K_CK, lower lucKey)")
@@ -62,7 +62,7 @@ def liability_scan(label, sequence):
 
 
 def variant_suggestion():
-    section("Suggested variant for the original binder (neutralizing policy)")
+    section("Suggested binder variant (neutralizing policy)")
     v = liability.suggest_variant(ORIGINAL, preserve_positions=calibration.PFLDH_INTERFACE,
                                   policy="neutralizing")
     print(f"original  : {ORIGINAL}")

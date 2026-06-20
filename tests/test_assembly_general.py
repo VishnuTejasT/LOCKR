@@ -1,5 +1,7 @@
 """General-engine tests: synthetic motifs/positions, no ECLIPSE specifics."""
 
+import dataclasses
+
 from lockr.engine import assembly
 from lockr.engine.models import GraftSpec, LatchWindow, ProtectedRegion, VariantSuggestion
 
@@ -119,3 +121,30 @@ def test_filter_safe_variants_rejects_substitution_inside_protected_region():
     assert rejected_variant is inside
     assert "position 12" in reason
     assert "protected region" in reason
+
+
+def test_filter_safe_variants_uses_absolute_position_not_local_position():
+    # Local position 12 lands inside this region (10-14) by coincidence -- if
+    # filter_safe_variants (or a caller feeding it) skipped the local->absolute
+    # offset, this would get wrongly rejected. The binder actually starts at
+    # absolute position 30, so position 12 is local-only; the true absolute
+    # position is 12 + (30 - 1) = 41, nowhere near 10-14.
+    region = ProtectedRegion(motif="MOTIF", start=10, end=14)
+    binder_start = 30
+    offset = binder_start - 1
+
+    v_local = VariantSuggestion(policy="neutralizing", sequence="...", mutations=["D12A"])
+
+    # Confirms the coincidence: taken at face value, position 12 IS inside the
+    # region, so an un-offset variant gets (correctly, for what it's given) rejected.
+    naive = assembly.filter_safe_variants([v_local], region)
+    assert naive.rejected and naive.rejected[0][0] is v_local
+
+    # Once shifted to the binder's real absolute coordinates, it's accepted --
+    # proving the offset, not the coincidence, is what determines the outcome.
+    abs_mutations = [f"{m[0]}{int(m[1:-1]) + offset}{m[-1]}" for m in v_local.mutations]
+    v_abs = dataclasses.replace(v_local, mutations=abs_mutations)
+
+    r = assembly.filter_safe_variants([v_abs], region)
+    assert r.accepted == [v_abs]
+    assert r.rejected == []
