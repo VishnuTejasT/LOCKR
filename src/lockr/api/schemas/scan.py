@@ -24,6 +24,7 @@ class ScanRequest(BaseModel):
     sensitive_window: Window
     ph: float = 7.4
     substitution_policy: str = "conservative"
+    preserve_positions: list[int] = []
 
     @field_validator("substitution_policy")
     @classmethod
@@ -102,6 +103,7 @@ class SuggestRequest(BaseModel):
     sensitive_window: Window
     substitution_policy: str = "neutralizing"
     max_variants: int = 1
+    preserve_positions: list[int] = []
 
     @field_validator("sequence")
     @classmethod

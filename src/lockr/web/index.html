@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LOCKR Thermodynamics Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=DM+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+
+<header class="app-header">
+  <div class="header-grid">
+    <a class="wordmark" href="#">ECLIPSE</a>
+    <nav class="tabs">
+      <button data-tab="scanner">Scanner</button>
+      <button data-tab="calculator">Calculator</button>
+    </nav>
+    <a href="https://gitlab.igem.org" target="_blank" rel="noopener">Docs ↗</a>
+  </div>
+</header>
+
+<main>
+
+  <section class="tab-panel" data-tab="scanner">
+    <div class="screen-header">
+      <h1>Charge &amp; Liability Scanner</h1>
+      <p>Use this section to verify whether a binder sequence is likely to be problematic to K-CK affinity through amino acid charge identification.</p>
+    </div>
+
+    <div class="two-col">
+      <div>
+        <div class="card">
+          <form id="scan-form">
+            <div class="field-row">
+              <label for="scan-sequence">Sequence</label>
+              <div class="seq-scroll">
+                <textarea id="scan-sequence" class="font-mono" rows="3" placeholder="Paste a binder sequence (standard amino acids only!)"></textarea>
+                <div id="scan-ruler" class="seq-ruler" aria-hidden="true"></div>
+              </div>
+              <div class="seq-footer help-text">
+                <span id="scan-charcount">0 residues</span>
+                <span id="scan-decount">0 D/E</span>
+                <span id="scan-netcharge-live">net charge (rough) ~0</span>
+              </div>
+              <div id="scan-longseq-warning" class="help-text" style="display:none; color: var(--warning-700);">This liability model istuned for peptide-scale binders</div>
+              <div class="field-error" id="scan-sequence-error"></div>
+            </div>
+
+            <details class="advanced">
+              <summary>Advanced</summary>
+              <div class="card">
+                <div class="field-row">
+                  <label for="scan-ph">pH</label>
+                  <input id="scan-ph" type="number" step="0.1" min="0" max="14" value="7.4">
+                </div>
+                <div class="field-row">
+                  <label>Sensitive window</label>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <input id="scan-window-start" type="number" min="1" value="1" style="width:90px;">
+                    <span class="help-text">to</span>
+                    <input id="scan-window-end" type="number" min="1" value="1" style="width:90px;">
+                  </div>
+                  <div class="field-error" id="scan-window-error"></div>
+                </div>
+                <div class="field-row">
+                  <label for="scan-preserve">Preserve positions</label>
+                  <input id="scan-preserve" type="text" placeholder="e.g. 1,2,11,12,15">
+                  <div class="help-text">These are positions/resdiues that are CRUCIAL for target biding, and can be identified through molecular docking</div>
+                  <div class="field-error" id="scan-preserve-error"></div>
+                </div>
+                <div class="field-row">
+                  <label>Substitution policy</label>
+                  <div class="segmented" id="scan-policy-segmented">
+                    <button type="button" data-policy="conservative" class="active">Conservative</button>
+                    <button type="button" data-policy="neutralizing">Neutralizing</button>
+                  </div>
+                  <div class="help-text">Conservative (D -> N & E -> Q) removes charge while keeping shape and H-bonding. Neutralizing (D -> A, E ->A) replaces with alanine</div>
+                </div>
+              </div>
+            </details>
+
+            <div class="field-row" style="display:flex; gap:8px; margin-top:24px;">
+              <button type="button" id="scan-submit" class="btn-primary" disabled>Scan</button>
+              <button type="button" id="scan-reset" class="btn-ghost">Reset</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div>
+        <div id="scan-empty-state" class="empty-state">
+          Enter a binder sequence and run a scan to identify whether cage-key affinity is inhibited
+        </div>
+
+        <div id="scan-results" style="display:none;">
+          <div class="card">
+            <div class="font-display" id="scan-band-label" style="font-size:32px;"></div>
+            <div class="liability-gauge"><div class="liability-gauge-marker" id="scan-gauge-marker"></div></div>
+            <div class="help-text" style="margin-top:12px;">
+              Net charge (pH <span id="scan-result-ph"></span>): <span class="font-mono" id="scan-net-charge"></span>
+            </div>
+            <div style="margin-top:8px;">
+              <span class="badge" id="scan-kck-badge"></span>
+              <span id="scan-kck-note" class="help-text"></span>
+            </div>
+            <div id="scan-warnings"></div>
+          </div>
+
+          <div class="card">
+            <h2 class="font-display" style="font-size:22px;">Annotated sequence</h2>
+            <div class="seq-scroll">
+              <div id="scan-annotated" class="seq-residues"></div>
+              <div id="scan-annotated-ruler" class="seq-ruler"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2 class="font-display" style="font-size:22px;">Per-position contribution</h2>
+            <div id="scan-contribution-chart"></div>
+          </div>
+
+          <div class="card">
+            <h2 class="font-display" style="font-size:22px;">Suggested variant</h2>
+            <div class="seq-scroll">
+              <div id="scan-variant-diff" class="seq-residues"></div>
+            </div>
+            <div class="help-text" id="scan-variant-mutations" style="margin-top:8px;"></div>
+            <div style="margin-top:8px;">
+              Liability score: <span class="font-mono" id="scan-variant-score-before"></span> → <span class="font-mono" id="scan-variant-score-after"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tab-panel" data-tab="calculator">
+    <div class="screen-header">
+      <h1>Fold-Change Calculator</h1>
+      <p>Predicts your Integrated-LOCKR Protein's fold-chnage capabilities and ranges, while indetifying its limits.</p>
+    </div>
+
+    <div class="two-col">
+      <div>
+        <div class="card">
+          <form id="calc-form">
+            <div class="field-row">
+              <label for="calc-kck">K_CK <span class="unit-suffix">nM</span></label>
+              <input id="calc-kck" data-calc-field="k_ck" type="number" step="any" value="10" min="0" placeholder="Identified from Scanner">
+              <div class="field-error" data-calc-error="k_ck"></div>
+            </div>
+            <div class="field-row">
+              <label for="calc-kopen">K_open <span class="unit-suffix">—</span></label>
+              <input id="calc-kopen" data-calc-field="k_open" type="number" step="any" value="0.001" min="0" placeholder="from literature or BLI measurement">
+              <div class="field-error" data-calc-error="k_open"></div>
+            </div>
+            <div class="field-row">
+              <label for="calc-pull">Pull strength <span class="unit-suffix">—</span></label>
+              <input id="calc-pull" data-calc-field="pull" type="number" step="any" value="10" min="0" placeholder="fit from your luminescence titration">
+              <div class="field-error" data-calc-error="pull"></div>
+              <div class="help-text">This is the one parameter that can't be computed, because it is based on wet-lab luminescne data, so we will assume it. 10-30 is the typical range, and higher = stronger allosteric coupling.</div>
+              <div id="calc-pull-warning" class="help-text" style="display:none; color: var(--warning-700);">pull strength above 50 has no documented importance, so check your units</div>
+              <div class="help-text font-mono" id="calc-kopen-eff-derived">K_open (effective, target-bound) = —</div>
+            </div>
+            <div class="field-row">
+              <label for="calc-luckey">lucKey<span class="unit-suffix">nM</span></label>
+              <input id="calc-luckey" data-calc-field="luckey" type="number" step="any" value="500" min="0" placeholder="Your assay design choice">
+              <div class="field-error" data-calc-error="luckey"></div>
+            </div>
+
+            <details class="advanced">
+              <summary>Advanced/Target-binding</summary>
+              <div class="card">
+                <div class="field-row">
+                  <label for="calc-ktarget">K_target <span class="unit-suffix">nM</span></label>
+                  <input id="calc-ktarget" data-calc-field="k_target" type="number" step="any" placeholder="from docking (e.g. ADCP)">
+                  <div class="field-error" data-calc-error="k_target"></div>
+                </div>
+                <div class="field-row">
+                  <label for="calc-targetconc">target<span class="unit-suffix">nM</span></label>
+                  <input id="calc-targetconc" data-calc-field="target_conc" type="number" step="any" placeholder="Leave blank if saturated">
+                  <div class="field-error" data-calc-error="target_conc"></div>
+                  <div class="help-text">Leave both blank to assume the target is fully saturating.</div>
+                </div>
+              </div>
+            </details>
+
+            <div class="field-row" style="display:flex; gap:8px; margin-top:24px;">
+              <button type="button" id="calc-submit" class="btn-primary">Calculate</button>
+              <button type="button" id="calc-reset" class="btn-ghost">Reset</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div>
+        <div id="calc-empty-state" class="empty-state">
+          Set your needed paramters and calculate fold chnage predictions, lucKey/K_CK dominance ration, and sensor limits.
+        </div>
+
+        <div id="calc-results" style="display:none;">
+          <div class="card">
+            <div class="hero-fc" id="calc-hero-fc">—</div>
+            <div class="verdict-subline" id="calc-subline"></div>
+            <div id="calc-regime-banner" class="verdict-banner">
+              <div>
+                <div class="verdict-title" id="calc-regime-title"></div>
+                <div id="calc-regime-body"></div>
+              </div>
+            </div>
+            <div id="calc-result-warnings"></div>
+          </div>
+
+          <div class="card">
+            <h2 class="font-display" style="font-size:22px;">Fold-change vs lucKey</h2>
+            <svg class="plot-svg" id="calc-plot-luckey"></svg>
+            <div class="plot-caption">Dashed line: lucKey/K_CK dominance ratio (a diagnostic threshold, not an achievable fold-change target).
+              Dashed Line: K_CK dominance is the diagnostic thrshold, and not an actual/achievable fold change target.
+            </div>
+          </div>
+
+          <div class="card">
+            <h2 class="font-display" style="font-size:22px;">Fold-change vs K_open</h2>
+            <svg class="plot-svg" id="calc-plot-kopen"></svg>
+            <div class="plot-caption">The line is flat in the key-limited area. Flatness indicates that latch mutations won't help.</div>
+          </div>
+
+          <div class="card">
+            <h2 class="font-display" style="font-size:22px;">Recommendations</h2>
+            <ul class="recommendations" id="calc-recommendations"></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="app-footer">
+  CC-BY 4.0 · <a href="https://gitlab.igem.org" target="_blank" rel="noopener">GitLab repo</a> · v0.1.0
+</footer>
+
+<script src="/static/js/shared.js"></script>
+<script src="/static/js/plot.js"></script>
+<script src="/static/js/calculator.js"></script>
+<script src="/static/js/scanner.js"></script>
+</body>
+</html>

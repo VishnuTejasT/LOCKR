@@ -57,6 +57,32 @@ def test_scan_rejects_empty_sequence_list():
     assert response.status_code == 400
 
 
+def test_scan_preserve_positions_excludes_protected_residue_from_liabilities():
+    # D4 is a flagged liability with no protection; preserving it should drop
+    # it from acidic_residues/per_position entirely, same as the engine itself.
+    response = client.post("/scan", json=_scan_request(preserve_positions=[4]))
+    result = response.json()["results"][0]
+
+    flagged_positions = {r["position"] for r in result["acidic_residues"]}
+    assert 4 not in flagged_positions
+    assert len(result["acidic_residues"]) == 5  # 6 total liabilities minus the preserved one
+
+
+def test_suggest_preserve_positions_excludes_protected_residue_from_mutations():
+    response = client.post("/suggest", json={
+        "sequence": ORIGINAL,
+        "sensitive_window": {"start": 1, "end": 17},
+        "substitution_policy": "neutralizing",
+        "max_variants": 1,
+        "preserve_positions": [4],
+    })
+    variant = response.json()["suggested_variants"][0]
+
+    mutated_positions = {s["position"] for s in variant["substitutions"]}
+    assert 4 not in mutated_positions
+    assert variant["sequence"][3] == "D"  # position 4 (1-indexed) untouched
+
+
 def test_suggest_round_trips_into_scan_shape():
     response = client.post("/suggest", json={
         "sequence": ORIGINAL,

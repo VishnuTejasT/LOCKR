@@ -2,11 +2,10 @@
 
 thermo.py has no "sweep an arbitrary named parameter" function (only
 scan_dose_response, which is hardcoded to sweep target_conc). So this route
-builds one SensorParams/pull per point and calls the same per-point engine
+builds one SensorParams per point and calls the same per-point engine
 function diagnose_regime/max_fold_change already use -- it's a loop over real
 calls, not a new calculation. Whichever of the four params isn't being swept
-holds its base_params value; pull is re-derived from k_open_off/k_open_on at
-every point, same derivation /foldchange uses.
+holds its base_params value.
 """
 
 from __future__ import annotations
@@ -25,9 +24,8 @@ router = APIRouter()
 _NM_TO_M = 1e-9
 
 
-def _fold_change_at(k_ck, k_open_off, k_open_on, luckey) -> tuple[float, float]:
-    params = SensorParams(K_open=k_open_off, K_CK=k_ck * _NM_TO_M, lucKey=luckey * _NM_TO_M)
-    pull = (k_open_on / k_open_off) - 1
+def _fold_change_at(k_ck, k_open, pull, luckey) -> tuple[float, float]:
+    params = SensorParams(K_open=k_open, K_CK=k_ck * _NM_TO_M, lucKey=luckey * _NM_TO_M)
     fc = thermo.max_fold_change(Kd=1.0, pull=pull, params=params)
     return fc, params.luckey_ratio
 

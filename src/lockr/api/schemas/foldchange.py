@@ -7,17 +7,24 @@ from pydantic import BaseModel, field_validator, model_validator
 
 class FoldChangeRequest(BaseModel):
     k_ck: float
-    k_open_off: float
-    k_open_on: float
+    k_open: float
+    pull: float
     luckey: float
     k_target: float | None = None
     target_conc: float | None = None
 
-    @field_validator("k_ck", "k_open_off", "k_open_on", "luckey")
+    @field_validator("k_ck", "k_open", "luckey")
     @classmethod
     def _positive(cls, v, info):
         if v <= 0:
             raise ValueError(f"{info.field_name} must be > 0")
+        return v
+
+    @field_validator("pull")
+    @classmethod
+    def _pull_non_negative(cls, v):
+        if v < 0:
+            raise ValueError("pull must be >= 0")
         return v
 
     @field_validator("k_target", "target_conc")

@@ -1,9 +1,9 @@
 """POST /scan and POST /suggest -- both thin wrappers over liability.py.
 
-No "preserve_positions" field exists in the spec's request shape (that's
-liability.py's soft target-interface tradeoff, not something the UI exposes
-yet) so every call here passes preserve_positions=[] and relies on
-sensitive_window alone, matching spec section 4.3's described algorithm.
+preserve_positions threads straight through to liability.py's own parameter
+(the soft target-interface tradeoff, e.g. PfLDH contacts like [1,2,11,12,15])
+-- it defaults to [] so sensitive_window alone still does the work when a
+caller doesn't have target-contact positions to protect.
 """
 
 from __future__ import annotations
@@ -21,12 +21,12 @@ router = APIRouter()
 
 # Verbatim from spec 9.2 -- UI copy, not engine output.
 _KCK_NOTES = {
-    "low": "No significant charge liabilities in the sensitive region. Cage-key "
+    "low": "There are not any acidic residues in the sensitive region, so K_CK"
            "affinity should be preserved.",
-    "moderate": "Some acidic residues in sensitive positions. K_CK may be partially "
-                "weakened — review the flagged residues.",
-    "high": "Multiple acidic residues in the sensitive region are likely to collapse "
-            "cage-key affinity (K_CK). Strongly consider the suggested charge-optimized "
+    "moderate": "There are some acidic residues in the sensitive region, so K_CK may be partially "
+                "weakened. Look over the flagged residues.",
+    "high": "There are a lot of acidic residues in the sensitive region, so K_CK affinity is likely to be significantly "
+            "hindered. Strongly consider the recommended charge-optimized"
             "variant.",
 }
 
@@ -39,9 +39,11 @@ def _parse_mutation(mutation: str) -> Substitution:
     return Substitution(position=pos, **{"from": from_aa}, to=to_aa)
 
 
-def _scan_one(sequence: str, start: int, end: int, ph: float, policy: str) -> ScanResultItem:
-    census = liability.scan_liability(sequence, preserve_positions=[], ph=ph)
-    windowed = liability.scan_liability(sequence, preserve_positions=[], ph=ph, window=(start, end))
+def _scan_one(sequence: str, start: int, end: int, ph: float, policy: str,
+              preserve_positions: list[int]) -> ScanResultItem:
+    census = liability.scan_liability(sequence, preserve_positions=preserve_positions, ph=ph)
+    windowed = liability.scan_liability(sequence, preserve_positions=preserve_positions, ph=ph,
+                                        window=(start, end))
     in_window_positions = {l.position: l.penalty for l in windowed.liabilities}
 
     acidic_residues = [
@@ -58,7 +60,7 @@ def _scan_one(sequence: str, start: int, end: int, ph: float, policy: str) -> Sc
     helix_flags = [HelixFlag(position=p, issue="internal proline/glycine may break the helix")
                   for p in helix_breakers(sequence)]
 
-    variant = liability.suggest_variant(sequence, preserve_positions=[], policy=policy,
+    variant = liability.suggest_variant(sequence, preserve_positions=preserve_positions, policy=policy,
                                         window=(start, end))
     suggested = [SuggestedVariant(
         sequence=variant.sequence,
@@ -89,7 +91,8 @@ def scan(request: ScanRequest) -> ScanResponse:
     results = []
     for item in request.sequences:
         start, end = request.sensitive_window.clamped(len(item.sequence))
-        result = _scan_one(item.sequence, start, end, request.ph, request.substitution_policy)
+        result = _scan_one(item.sequence, start, end, request.ph, request.substitution_policy,
+                           request.preserve_positions)
         result.id = item.id
         results.append(result)
     return ScanResponse(results=results)
@@ -98,7 +101,7 @@ def scan(request: ScanRequest) -> ScanResponse:
 @router.post("/suggest", response_model=SuggestResponse)
 def suggest(request: SuggestRequest) -> SuggestResponse:
     start, end = request.sensitive_window.clamped(len(request.sequence))
-    variant = liability.suggest_variant(request.sequence, preserve_positions=[],
+    variant = liability.suggest_variant(request.sequence, preserve_positions=request.preserve_positions,
                                         policy=request.substitution_policy, window=(start, end))
     suggested = SuggestedVariant(
         sequence=variant.sequence,

@@ -7,7 +7,7 @@ from lockr.engine.models import DEFAULT_PARAMS
 
 client = TestClient(app)
 
-_BASE = {"k_ck": 10.0, "k_open_off": 0.001, "k_open_on": 0.011, "luckey": 500.0}
+_BASE = {"k_ck": 10.0, "k_open": 0.001, "pull": 10.0, "luckey": 500.0}
 
 
 def test_sweep_operating_point_matches_known_eclipse_fold_change():
@@ -49,6 +49,6 @@ def test_sweep_rejects_min_greater_than_max():
 def test_sweep_rejects_unknown_param():
     response = client.post("/sweep", json={
         "base_params": _BASE,
-        "sweep": {"param": "pull", "min": 1, "max": 100, "steps": 5, "scale": "log"},
+        "sweep": {"param": "k_target", "min": 1, "max": 100, "steps": 5, "scale": "log"},
     })
     assert response.status_code == 400
