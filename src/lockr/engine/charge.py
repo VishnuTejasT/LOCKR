@@ -31,7 +31,7 @@ def net_charge(sequence: str, pH: float = 7.4) -> float:
     return q
 
 
-# Chou-Fasman P_alpha helix propensities.
+# Chou-Fasman alpha helix propensities.
 _PALPHA = {
     "A": 1.42, "C": 0.70, "D": 1.01, "E": 1.51, "F": 1.13, "G": 0.57, "H": 1.00,
     "I": 1.08, "K": 1.16, "L": 1.21, "M": 1.45, "N": 0.67, "P": 0.57, "Q": 1.11,

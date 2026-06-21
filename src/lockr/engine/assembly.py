@@ -31,7 +31,7 @@ def check_protected_region(full_sequence: str, protected_motif: str,
 
     mismatches = [start + i for i in range(min(len(found), len(protected_motif)))
                  if found[i] != protected_motif[i]]
-    # A length mismatch means the window itself is wrong, not just a residue --
+    # A length mismatch means the window itself is wrong, not just a residue
     # flag every position past the shorter string too, not just substitutions.
     if len(found) != len(protected_motif):
         mismatches += list(range(start + min(len(found), len(protected_motif)),
@@ -46,8 +46,8 @@ class OverlapCheck:
 
 
 def _graft_segments(graft_spec: GraftSpec):
-    # binder/linker/binder2 are the things actually being inserted; spacer is
-    # pre-existing scaffold, not part of the graft, so it's excluded here.
+    # binder/linker/binder2 are the things actually being inserted and the spacer is
+    # the pre-existing scaffold, and not part of the graft, so it is excluded here.
     segments = [(graft_spec.start, graft_spec.start + len(graft_spec.binder) - 1)]
     if graft_spec.linker is not None:
         segments.append((graft_spec.linker_start,
@@ -106,13 +106,6 @@ class AssemblyResult:
 def verify_full_assembly(full_sequence: str, latch_window: LatchWindow, graft_spec: GraftSpec,
                          protected_region: ProtectedRegion,
                          expected_total_length: int | None = None) -> AssemblyResult:
-    """All-in-one checklist, generalizing my Script 6 six-point pattern.
-
-    Checks only show up for segments the caller actually supplied -- a v1.0
-    single binder gets no linker/binder2 rows, a v2.2 tandem gets both. Nothing
-    here hardcodes a spacer value or a motif; spacer/binder content come from
-    graft_spec, the motif from protected_region.
-    """
     checks = []
 
     if expected_total_length is not None:
@@ -158,7 +151,7 @@ def verify_full_assembly(full_sequence: str, latch_window: LatchWindow, graft_sp
 
 
 def _mutation_position(mutation: str) -> int:
-    # liability.py writes mutations as "{old}{pos}{new}", e.g. "D4A" -- digits
+    # liability.py writes mutations as "{old}{pos}{new}", e.g. "D4A" digits
     # are always the position since residue codes are letters.
     return int("".join(ch for ch in mutation if ch.isdigit()))
 
@@ -171,12 +164,8 @@ class FilteredVariants:
 
 def filter_safe_variants(suggested_variants: list[VariantSuggestion],
                          protected_region: ProtectedRegion) -> FilteredVariants:
-    """Keep liability.py's variant suggester from ever proposing a substitution
-    inside a protected region it has no idea exists.
-
-    One-way dependency: this reads VariantSuggestion's shape from models.py,
-    but liability.py never imports assembly.py -- the liability scanner stays
-    completely unaware that protected regions are a concept.
+    """This restricts liability.py from ever suggestion mutations to a protected region, which is a hard constraint
+    for function.
     """
     accepted, rejected = [], []
     for variant in suggested_variants:

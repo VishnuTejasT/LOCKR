@@ -1,23 +1,21 @@
 """Shared data objects for the engine.
 
-General LOCKR/lucCage containers — no field assumes a specific target, binder,
-or cage variant. ECLIPSE-specific data lives in calibration.py and the test
-files, not here.
-
-This code contains shared data objects for the engine, based on the general template LucCage LOCKR containers, with no asusmptions for integrated binders, 
-targets, or cage variants. ECLIPSE-specific data lives in calibration.py and the test files, not here. Specifc data is also given in other code.
+This code contains shared data objects for the engine, based on the general template LucCage LOCKR containers, 
+with no asusmptions for integrated binders, targets, or cage variants. 
+ECLIPSE-specific data lives in calibration.py and the test files, not here. 
+Specifc data is also given in other code.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-# Base lucCage scaffold defaults (Quijano-Rubio et al. 2021); override per system.
+# Base lucCage scaffold defaults (Quijano-Rubio et al. 2021) override per system.
 RT_37C = 0.592
 K_OPEN_DEFAULT = 1e-3
 K_CK_DEFAULT = 1e-8
 LUCKEY_DEFAULT = 500e-9
-# TODO: confirm K_CK = lucKey-cage vs lucKey-SmBiT Kd, inconsistent in my source docs.
+
 
 
 @dataclass(frozen=True)

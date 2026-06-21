@@ -10,7 +10,6 @@ from __future__ import annotations
 PFLDH_INTERFACE = [1, 2, 11, 12, 15]
 
 # Per-residue electrostatic penalty, calibrated on the two binders below.
-# TODO: recalibrate as more LOCKR systems are tested.
 PENALTY_PER_ACIDIC = 0.8
 
 ANCHORS = {
