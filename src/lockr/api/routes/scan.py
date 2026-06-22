@@ -21,11 +21,11 @@ router = APIRouter()
 
 # Verbatim from spec 9.2 -- UI copy, not engine output.
 _KCK_NOTES = {
-    "low": "There are not any acidic residues in the sensitive region, so K_CK"
+    "Low": "There are not any acidic residues in the sensitive region, so K_CK"
            "affinity should be preserved.",
-    "moderate": "There are some acidic residues in the sensitive region, so K_CK may be partially "
+    "Moderate": "There are some acidic residues in the sensitive region, so K_CK may be partially "
                 "weakened. Look over the flagged residues.",
-    "high": "There are a lot of acidic residues in the sensitive region, so K_CK affinity is likely to be significantly "
+    "High": "There are a lot of acidic residues in the sensitive region, so K_CK affinity is likely to be significantly "
             "hindered. Strongly consider the recommended charge-optimized"
             "variant.",
 }
@@ -78,6 +78,7 @@ def _scan_one(sequence: str, start: int, end: int, ph: float, policy: str,
         acidic_residues=acidic_residues,
         liability_score=windowed.liability_score,
         liability_band=windowed.liability_band,
+        estimated_kck_nm=windowed.K_CK_estimate * 1e9,
         predicted_kck_penalty=KckPenalty(band=windowed.liability_band,
                                          note=_KCK_NOTES[windowed.liability_band]),
         per_position=per_position,

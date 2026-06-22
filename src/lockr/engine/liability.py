@@ -38,10 +38,10 @@ def kck_from_penalty(penalty: float, K_CK_reference: float = K_CK_DEFAULT,
 
 def _band(score: float) -> str:
     if score <= _BAND_LOW_MAX:
-        return "low"
+        return "Low"
     if score <= _BAND_MODERATE_MAX:
-        return "moderate"
-    return "high"
+        return "Moderate"
+    return "High"
 
 
 def _score_from_penalty(penalty: float, score_scale: float) -> float:

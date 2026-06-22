@@ -102,6 +102,9 @@
             <div class="help-text" style="margin-top:12px;">
               Net charge (pH <span id="scan-result-ph"></span>): <span class="font-mono" id="scan-net-charge"></span>
             </div>
+            <div class="help-text" style="margin-top:8px;">
+              K_CK estimate: <span class="font-mono" id="scan-kck-estimate">—</span>
+            </div>
             <div style="margin-top:8px;">
               <span class="badge" id="scan-kck-badge"></span>
               <span id="scan-kck-note" class="help-text"></span>
@@ -124,12 +127,24 @@
 
           <div class="card">
             <h2 class="font-display" style="font-size:22px;">Suggested variant</h2>
-            <div class="seq-scroll">
-              <div id="scan-variant-diff" class="seq-residues"></div>
+            <div id="scan-variant-none" class="help-text" style="display:none; margin-top:8px;">No liabilities found — no variant needed.</div>
+            <div id="scan-variant-boxes" style="display:none; align-items:center; gap:12px; margin-top:12px; flex-wrap:wrap;">
+              <div class="variant-seq-box variant-seq-box--old">
+                <div class="variant-seq-box-label">Original</div>
+                <div id="scan-variant-original" class="seq-residues font-mono"></div>
+              </div>
+              <div class="variant-arrow">→</div>
+              <div class="variant-seq-box variant-seq-box--new">
+                <div class="variant-seq-box-label">Variant</div>
+                <div id="scan-variant-new" class="seq-residues font-mono"></div>
+              </div>
             </div>
             <div class="help-text" id="scan-variant-mutations" style="margin-top:8px;"></div>
             <div style="margin-top:8px;">
               Liability score: <span class="font-mono" id="scan-variant-score-before"></span> → <span class="font-mono" id="scan-variant-score-after"></span>
+            </div>
+            <div class="help-text" style="margin-top:4px;">
+              K_CK estimate after fix: <span class="font-mono" id="scan-variant-kck-estimate">—</span>
             </div>
           </div>
         </div>

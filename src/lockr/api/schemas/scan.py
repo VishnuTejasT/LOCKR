@@ -88,6 +88,7 @@ class ScanResultItem(BaseModel):
     acidic_residues: list[AcidicResidue]
     liability_score: float
     liability_band: str
+    estimated_kck_nm: float
     predicted_kck_penalty: KckPenalty
     per_position: list[PerPosition]
     helix_flags: list[HelixFlag]

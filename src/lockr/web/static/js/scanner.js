@@ -1,13 +1,10 @@
-// Scanner tab. Step 2: live client-side ruler/annotation on the sequence
-// textarea -- no API call involved, only `/scan` submission (not yet wired)
-// touches the network. Kept isolated from that path on purpose.
+
 
 const STANDARD_AA = new Set("ACDEFGHIKLMNPQRSTVWY".split(""));
 const ACIDIC_AA = new Set(["D", "E"]);
 const BASIC_AA = new Set(["K", "R", "H"]);
 
-// Shared by the live preview here and the post-scan annotated-sequence card
-// (step 3) -- both need "every 5th position numbered" under a mono sequence.
+
 function buildRulerRow(length) {
   const row = document.createElement("div");
   row.className = "seq-ruler";
@@ -155,55 +152,68 @@ function scanRenderAnnotatedSequence(result) {
 function scanRenderContributionChart(result) {
   const container = scanEl("scan-contribution-chart");
   container.innerHTML = "";
-  const flagged = result.per_position.filter((p) => p.contribution > 0);
-  if (flagged.length === 0) {
+  const anyFlagged = result.per_position.some((p) => p.contribution > 0);
+  if (!anyFlagged) {
     container.innerHTML = '<div class="help-text">No charge liabilities flagged.</div>';
     return;
   }
-  const maxContribution = Math.max(...flagged.map((p) => p.contribution));
-  flagged.forEach((p) => {
-    const row = document.createElement("div");
-    row.className = "contribution-row";
-    const label = document.createElement("div");
-    label.className = "contribution-label";
-    label.textContent = `${p.residue}${p.position}`;
-    const track = document.createElement("div");
-    track.className = "contribution-bar-track";
-    const fill = document.createElement("div");
-    fill.className = "contribution-bar-fill";
-    fill.style.width = `${(p.contribution / maxContribution) * 100}%`;
-    track.appendChild(fill);
-    row.appendChild(label);
-    row.appendChild(track);
-    container.appendChild(row);
+  const heatmap = document.createElement("div");
+  heatmap.className = "contrib-heatmap";
+  result.per_position.forEach((p) => {
+    const cell = document.createElement("div");
+    cell.className = "contrib-cell";
+
+    const tile = document.createElement("div");
+    tile.className = `contrib-cell-tile ${p.contribution > 0 ? "contrib-cell-tile--flagged" : "contrib-cell-tile--neutral"}`;
+    tile.textContent = p.residue;
+    tile.title = p.contribution > 0 ? `${p.residue}${p.position}: ${p.contribution.toFixed(2)} kcal/mol penalty` : `${p.residue}${p.position}: no penalty`;
+
+    const posLabel = document.createElement("div");
+    posLabel.className = "contrib-cell-pos";
+    posLabel.textContent = p.position % 5 === 0 ? p.position : "";
+
+    cell.appendChild(tile);
+    cell.appendChild(posLabel);
+    heatmap.appendChild(cell);
   });
+  container.appendChild(heatmap);
 }
 
 function scanRenderVariant(result) {
-  const diffEl = scanEl("scan-variant-diff");
-  diffEl.innerHTML = "";
+  const noneEl = scanEl("scan-variant-none");
+  const boxesEl = scanEl("scan-variant-boxes");
   const variant = result.suggested_variants[0];
 
   if (!variant) {
-    diffEl.textContent = "No liabilities found -- no variant needed.";
+    noneEl.style.display = "block";
+    boxesEl.style.display = "none";
     scanEl("scan-variant-mutations").textContent = "";
     scanEl("scan-variant-score-before").textContent = roundSig(result.liability_score, 3);
     scanEl("scan-variant-score-after").textContent = roundSig(result.liability_score, 3);
+    scanEl("scan-variant-kck-estimate").textContent = "—";
     return;
   }
 
+  noneEl.style.display = "none";
+  boxesEl.style.display = "flex";
+
   const mutated = new Map(variant.substitutions.map((s) => [s.position, s]));
 
-  const originalRow = buildResidueRow(result.sequence, (ch, i) => mutated.has(i + 1) ? "res-old" : "res-muted");
-  const variantRow = buildResidueRow(variant.sequence, (ch, i) => mutated.has(i + 1) ? "res-new" : "res-muted");
-  diffEl.appendChild(originalRow);
-  diffEl.appendChild(variantRow);
+  const originalEl = scanEl("scan-variant-original");
+  originalEl.innerHTML = "";
+  originalEl.appendChild(buildResidueRow(result.sequence, (ch, i) => mutated.has(i + 1) ? "res-old" : "res-muted"));
+
+  const newEl = scanEl("scan-variant-new");
+  newEl.innerHTML = "";
+  newEl.appendChild(buildResidueRow(variant.sequence, (ch, i) => mutated.has(i + 1) ? "res-new" : "res-muted"));
 
   scanEl("scan-variant-mutations").textContent = variant.substitutions
     .map((s) => `${s.from_ ?? s.from}${s.position}${s.to}`)
     .join(", ");
   scanEl("scan-variant-score-before").textContent = roundSig(result.liability_score, 3);
   scanEl("scan-variant-score-after").textContent = roundSig(variant.liability_score, 3);
+  const variantKckM = variant.estimated_kck_nm * 1e-9;
+  scanEl("scan-variant-kck-estimate").textContent = `${variantKckM.toExponential(2)} M`;
 }
 
 function scanRenderResults(result) {
@@ -214,6 +224,9 @@ function scanRenderResults(result) {
   scanEl("scan-gauge-marker").style.left = `${result.liability_score}%`;
   scanEl("scan-result-ph").textContent = scanEl("scan-ph").value;
   scanEl("scan-net-charge").textContent = roundSig(result.net_charge, 3);
+
+  const kckM = result.estimated_kck_nm * 1e-9;
+  scanEl("scan-kck-estimate").textContent = `${kckM.toExponential(2)} M`;
 
   const badge = scanEl("scan-kck-badge");
   badge.className = `badge badge-${result.predicted_kck_penalty.band}`;
