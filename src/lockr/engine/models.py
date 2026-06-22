@@ -117,7 +117,7 @@ class LiabilityReport:
     net_charge: float = 0.0
     penalty_total: float = 0.0
     liability_score: float = 0.0
-    liability_band: str = "low"
+    liability_band: str = "Low"
     K_CK_estimate: float = 0.0
 
 
@@ -127,7 +127,7 @@ class VariantSuggestion:
     sequence: str
     mutations: list[str] = field(default_factory=list)
     liability_score: float = 0.0
-    liability_band: str = "low"
+    liability_band: str = "Low"
     K_CK_estimate: float = 0.0
 
 

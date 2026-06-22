@@ -20,7 +20,7 @@ def test_no_acidic_residues_gives_zero_penalty():
     r = liability.scan_liability("AAAAKKKK", preserve_positions=[])
     assert r.liabilities == []
     assert r.penalty_total == 0.0
-    assert r.liability_band == "low"
+    assert r.liability_band == "Low"
 
 
 def test_custom_penalty_scales_kck_estimate():

@@ -43,7 +43,7 @@
                 <span id="scan-decount">0 D/E</span>
                 <span id="scan-netcharge-live">net charge (rough) ~0</span>
               </div>
-              <div id="scan-longseq-warning" class="help-text" style="display:none; color: var(--warning-700);">This liability model istuned for peptide-scale binders</div>
+              <div id="scan-longseq-warning" class="help-text" style="display:none; color: var(--warning-700);">long sequence — liability model tuned for peptide-scale binders</div>
               <div class="field-error" id="scan-sequence-error"></div>
             </div>
 
@@ -66,7 +66,7 @@
                 <div class="field-row">
                   <label for="scan-preserve">Preserve positions</label>
                   <input id="scan-preserve" type="text" placeholder="e.g. 1,2,11,12,15">
-                  <div class="help-text">These are positions/resdiues that are CRUCIAL for target biding, and can be identified through molecular docking</div>
+                  <div class="help-text">These are positions/residues that are CRUCIAL for target binding, and can be identified through molecular docking</div>
                   <div class="field-error" id="scan-preserve-error"></div>
                 </div>
                 <div class="field-row">
@@ -99,9 +99,6 @@
             <div class="liability-gauge"><div class="liability-gauge-marker" id="scan-gauge-marker"></div></div>
             <div class="help-text" style="margin-top:12px;">
               Net charge (pH <span id="scan-result-ph"></span>): <span class="font-mono" id="scan-net-charge"></span>
-            </div>
-            <div class="help-text" style="margin-top:8px;">
-              K_CK estimate: <span class="font-mono" id="scan-kck-estimate">—</span>
             </div>
             <div style="margin-top:8px;">
               <span class="badge" id="scan-kck-badge"></span>
@@ -141,8 +138,27 @@
             <div style="margin-top:8px;">
               Liability score: <span class="font-mono" id="scan-variant-score-before"></span> → <span class="font-mono" id="scan-variant-score-after"></span>
             </div>
-            <div class="help-text" style="margin-top:4px;">
-              K_CK estimate after fix: <span class="font-mono" id="scan-variant-kck-estimate">—</span>
+            <div id="scan-variant-copy-row" style="display:none; margin-top:12px; align-items:center; gap:8px;">
+              <span class="font-mono" id="scan-variant-copy-sequence" style="word-break:break-all;"></span>
+              <button type="button" id="scan-variant-copy-btn" class="btn-secondary" style="height:28px; padding:0 10px; font-size:13px;">Copy</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2 class="font-display" style="font-size:22px;">K_CK Estimates</h2>
+            <div style="display:flex; align-items:center; gap:12px; margin-top:12px; flex-wrap:wrap;">
+              <div class="variant-seq-box variant-seq-box--old">
+                <div class="variant-seq-box-label">Original Interaction</div>
+                <div id="scan-kck-estimate" class="seq-residues font-mono">—</div>
+              </div>
+              <div class="variant-arrow">→</div>
+              <div class="variant-seq-box variant-seq-box--new">
+                <div class="variant-seq-box-label">Variant Interaction</div>
+                <div id="scan-variant-kck-estimate" class="seq-residues font-mono">—</div>
+              </div>
+            </div>
+            <div class="help-text" style="margin-top:8px;">
+              In nanomolar (nM): <span class="font-mono" id="scan-kck-estimate-nm">—</span> → <span class="font-mono" id="scan-variant-kck-estimate-nm">—</span>
             </div>
           </div>
         </div>
@@ -153,7 +169,7 @@
   <section class="tab-panel" data-tab="calculator">
     <div class="screen-header">
       <h1>Fold-Change Calculator</h1>
-      <p>Predicts your Integrated-LOCKR Protein's fold-chnage capabilities and ranges, while indetifying its limits.</p>
+      <p>Predicts your Integrated-LOCKR Protein's fold-change capabilities and ranges, while identifying its limits.</p>
     </div>
 
     <div class="two-col">
@@ -174,7 +190,7 @@
               <label for="calc-pull">Pull strength <span class="unit-suffix">—</span></label>
               <input id="calc-pull" data-calc-field="pull" type="number" step="any" value="10" min="0" placeholder="fit from your luminescence titration">
               <div class="field-error" data-calc-error="pull"></div>
-              <div class="help-text">This is the one parameter that can't be computed, because it is based on wet-lab luminescne data, so we will assume it. 10-30 is the typical range, and higher = stronger allosteric coupling.</div>
+              <div class="help-text">This is the one parameter that can't be computed, because it is based on wet-lab luminescence data, so we will assume it. 10-30 is the typical range, and higher = stronger allosteric coupling.</div>
               <div id="calc-pull-warning" class="help-text" style="display:none; color: var(--warning-700);">pull strength above 50 has no documented importance, so check your units</div>
               <div class="help-text font-mono" id="calc-kopen-eff-derived">K_open (effective, target-bound) = —</div>
             </div>
@@ -211,7 +227,11 @@
 
       <div>
         <div id="calc-empty-state" class="empty-state">
-          Set your needed paramters and calculate fold chnage predictions, lucKey/K_CK dominance ration, and sensor limits.
+          Set your parameters and calculate to see predicted fold-change, the lucKey/K_CK dominance ratio, and what's limiting your sensor.
+        </div>
+
+        <div id="calc-undefined-result" class="card" style="display:none;">
+          Parameters produce an undefined result — check K_open and K_CK.
         </div>
 
         <div id="calc-results" style="display:none;">
@@ -230,9 +250,7 @@
           <div class="card">
             <h2 class="font-display" style="font-size:22px;">Fold-change vs lucKey</h2>
             <svg class="plot-svg" id="calc-plot-luckey"></svg>
-            <div class="plot-caption">Dashed line: lucKey/K_CK dominance ratio (a diagnostic threshold, not an achievable fold-change target).
-              Dashed Line: K_CK dominance is the diagnostic thrshold, and not an actual/achievable fold change target.
-            </div>
+            <div class="plot-caption">Dashed line: lucKey/K_CK dominance ratio (a diagnostic threshold, not an achievable fold-change target).</div>
           </div>
 
           <div class="card">

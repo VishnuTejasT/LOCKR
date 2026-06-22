@@ -1,4 +1,12 @@
 /* design tokens -- spec section 1, ECLIPSE wiki identity reused as-is */
+@font-face {
+    font-family: 'Fredoka One';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url(https://static.igem.wiki/teams/6112/wiki/betterfonts/fredoka-regular.ttf) format('truetype');
+}
+
 :root {
   --brand-900: #5e0808;
   --brand-700: #870b0b;
@@ -33,6 +41,10 @@
   --plot-zone-warn: #fef3c7;
   --plot-zone-bad: #fee2e2;
 
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI Rounded", "Segoe UI", "Trebuchet MS", Verdana, sans-serif;
+  --font-display: "Fredoka One", "Comic Sans MS", "Trebuchet MS", var(--font-body);
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, "Liberation Mono", monospace;
+
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
@@ -49,22 +61,22 @@ body {
   margin: 0;
   background: var(--canvas);
   color: var(--text);
-  font-family: "DM Sans", sans-serif;
+  font-family: var(--font-body);
   font-size: 15px;
   line-height: 22px;
 }
 
 h1, h2, h3 { margin: 0; }
 
-.font-display { font-family: "Cormorant Garamond", serif; }
-.font-mono { font-family: "Gotham", monospace; }
+.font-display { font-family: var(--font-display); }
+.font-mono { font-family: var(--font-mono); }
 
 .font-mono::placeholder { color: var(--text); opacity: 1; }
 
 a { color: var(--brand-700); }
 
 button {
-  font-family: "DM Sans", sans-serif;
+  font-family: var(--font-body);
   font-size: 15px;
   font-weight: 500;
   height: 40px;
@@ -94,11 +106,11 @@ input, textarea, select {
   border-radius: var(--radius-md);
   height: 40px;
   padding: 0 12px;
-  font-family: "DM Sans", sans-serif;
+  font-family: var(--font-body);
   font-size: 15px;
   color: var(--text);
 }
-input[type="number"] { text-align: right; font-family: "IBM Plex Mono", monospace; }
+input[type="number"] { text-align: right; font-family: var(--font-mono); }
 textarea {
   height: auto;
   padding: 10px 12px;
@@ -174,7 +186,7 @@ header.app-header {
   padding: 0 32px;
 }
 header.app-header .wordmark {
-  font-family: "Cormorant Garamond", serif;
+  font-family: var(--font-display);
   font-size: 22px;
   font-weight: 600;
   color: var(--brand-700);
@@ -244,7 +256,7 @@ details.advanced .card { margin-top: 8px; background: var(--surface-alt); box-sh
   border-radius: var(--radius-lg);
 }
 
-.hero-fc { font-family: "Cormorant Garamond", serif; font-size: 40px; line-height: 48px; font-weight: 600; }
+.hero-fc { font-family: var(--font-display); font-size: 40px; line-height: 48px; font-weight: 600; }
 .verdict-subline { color: var(--text-soft); font-size: 13px; margin-top: 4px; }
 .verdict-banner {
   display: flex;
@@ -394,7 +406,7 @@ textarea#scan-sequence { font-size: 15px; letter-spacing: 1px; }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   font-weight: 500;
   transition: opacity 0.1s;
@@ -410,7 +422,7 @@ textarea#scan-sequence { font-size: 15px; letter-spacing: 1px; }
   border: 1.5px solid var(--brand-900);
 }
 .contrib-cell-pos {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   color: var(--text-muted);
   min-height: 13px;

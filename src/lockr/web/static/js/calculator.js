@@ -149,11 +149,18 @@ async function calcSubmit() {
 
   try {
     const result = await apiPost("/foldchange", values);
+    calcEl("calc-undefined-result").style.display = "none";
     calcState.result = result;
     calcRenderVerdict(result);
     await calcRunSweeps(values);
   } catch (err) {
-    showToast(err.networkError ? err.message : `${err.code || "ERROR"}: ${err.message}`);
+    if (err.code === "UNDEFINED_RESULT") {
+      calcEl("calc-empty-state").style.display = "none";
+      calcEl("calc-results").style.display = "none";
+      calcEl("calc-undefined-result").style.display = "block";
+    } else {
+      showToast(err.networkError ? err.message : `${err.code || "ERROR"}: ${err.message}`);
+    }
   } finally {
     button.disabled = false;
     button.innerHTML = originalLabel;
@@ -165,6 +172,7 @@ function calcReset() {
   calcUpdateValidity();
   calcEl("calc-empty-state").style.display = "block";
   calcEl("calc-results").style.display = "none";
+  calcEl("calc-undefined-result").style.display = "none";
 }
 
 function initCalculator() {

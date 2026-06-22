@@ -191,6 +191,8 @@ function scanRenderVariant(result) {
     scanEl("scan-variant-score-before").textContent = roundSig(result.liability_score, 3);
     scanEl("scan-variant-score-after").textContent = roundSig(result.liability_score, 3);
     scanEl("scan-variant-kck-estimate").textContent = "—";
+    scanEl("scan-variant-kck-estimate-nm").textContent = "—";
+    scanEl("scan-variant-copy-row").style.display = "none";
     return;
   }
 
@@ -214,6 +216,10 @@ function scanRenderVariant(result) {
   scanEl("scan-variant-score-after").textContent = roundSig(variant.liability_score, 3);
   const variantKckM = variant.estimated_kck_nm * 1e-9;
   scanEl("scan-variant-kck-estimate").textContent = `${variantKckM.toExponential(2)} M`;
+  scanEl("scan-variant-kck-estimate-nm").textContent = `${roundSig(variant.estimated_kck_nm, 3)} nM`;
+
+  scanEl("scan-variant-copy-row").style.display = "flex";
+  scanEl("scan-variant-copy-sequence").textContent = variant.sequence;
 }
 
 function scanRenderResults(result) {
@@ -227,11 +233,23 @@ function scanRenderResults(result) {
 
   const kckM = result.estimated_kck_nm * 1e-9;
   scanEl("scan-kck-estimate").textContent = `${kckM.toExponential(2)} M`;
+  scanEl("scan-kck-estimate-nm").textContent = `${roundSig(result.estimated_kck_nm, 3)} nM`;
 
   const badge = scanEl("scan-kck-badge");
   badge.className = `badge badge-${result.predicted_kck_penalty.band}`;
   badge.textContent = result.predicted_kck_penalty.band;
   scanEl("scan-kck-note").textContent = result.predicted_kck_penalty.note;
+
+  const warningsEl = scanEl("scan-warnings");
+  warningsEl.innerHTML = "";
+  (result.warnings || []).forEach((w) => {
+    const div = document.createElement("div");
+    div.className = "help-text";
+    div.style.color = "var(--warning-700)";
+    div.style.marginTop = "8px";
+    div.textContent = w;
+    warningsEl.appendChild(div);
+  });
 
   scanRenderAnnotatedSequence(result);
   scanRenderContributionChart(result);
@@ -295,6 +313,16 @@ function initScanner() {
   });
 
   scanEl("scan-submit").addEventListener("click", scanSubmit);
+
+  scanEl("scan-variant-copy-btn").addEventListener("click", async () => {
+    const sequence = scanEl("scan-variant-copy-sequence").textContent;
+    try {
+      await navigator.clipboard.writeText(sequence);
+      showToast("Variant sequence copied.");
+    } catch (err) {
+      showToast("Couldn't copy — select and copy the sequence manually.");
+    }
+  });
 
   renderLiveAnnotation();
 }

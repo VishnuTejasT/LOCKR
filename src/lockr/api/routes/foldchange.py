@@ -9,14 +9,23 @@ instead of backing pull out of a synthetic ON/OFF ratio.
 
 from __future__ import annotations
 
+import math
+
 from fastapi import APIRouter
 
 from lockr.engine import thermo
 from lockr.engine.models import SensorParams
 
+from ..errors import ApiError
 from ..schemas.foldchange import FoldChangeRequest, FoldChangeResponse
 
 router = APIRouter()
+
+# Spec 8's exact copy -- extreme but technically-positive inputs (e.g. K_CK
+# near float underflow) can drive the engine to a ZeroDivisionError or an
+# inf/nan ratio rather than a real answer; surface that as a normal 400
+# instead of a 500 or a NaN literal that wouldn't even parse as JSON.
+_UNDEFINED_RESULT_MESSAGE = "Parameters produce an undefined result — check K_open and K_CK."
 
 _NM_TO_M = 1e-9
 
@@ -48,14 +57,20 @@ def foldchange(request: FoldChangeRequest) -> FoldChangeResponse:
     params = SensorParams(K_open=request.k_open, K_CK=request.k_ck * _NM_TO_M,
                           lucKey=request.luckey * _NM_TO_M)
 
-    if request.target_conc is not None:
-        Kd = request.k_target * _NM_TO_M
-        target_conc = request.target_conc * _NM_TO_M
-        fc = thermo.fold_change(target_conc, Kd, request.pull, params)
-    else:
-        fc = thermo.max_fold_change(Kd=1.0, pull=request.pull, params=params)
+    try:
+        if request.target_conc is not None:
+            Kd = request.k_target * _NM_TO_M
+            target_conc = request.target_conc * _NM_TO_M
+            fc = thermo.fold_change(target_conc, Kd, request.pull, params)
+        else:
+            fc = thermo.max_fold_change(Kd=1.0, pull=request.pull, params=params)
+        regime_result = thermo.diagnose_regime(params, pull=request.pull)
+        fraction_of_dominance_ratio = fc / params.luckey_ratio
+    except (ZeroDivisionError, OverflowError, ValueError):
+        raise ApiError("UNDEFINED_RESULT", _UNDEFINED_RESULT_MESSAGE)
 
-    regime_result = thermo.diagnose_regime(params, pull=request.pull)
+    if not all(math.isfinite(v) for v in (fc, params.luckey_ratio, fraction_of_dominance_ratio)):
+        raise ApiError("UNDEFINED_RESULT", _UNDEFINED_RESULT_MESSAGE)
 
     warnings = []
     if request.pull > 50:
@@ -65,7 +80,7 @@ def foldchange(request: FoldChangeRequest) -> FoldChangeResponse:
     return FoldChangeResponse(
         fold_change=fc,
         dominance_ratio=params.luckey_ratio,
-        fraction_of_dominance_ratio=fc / params.luckey_ratio,
+        fraction_of_dominance_ratio=fraction_of_dominance_ratio,
         regime=regime_result.regime.replace("-", "_"),
         limiting_factor=_LIMITING_FACTOR[regime_result.regime],
         verdict=regime_result.verdict,

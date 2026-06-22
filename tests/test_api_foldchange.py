@@ -39,13 +39,13 @@ def test_foldchange_with_partial_target_occupancy_uses_theta():
     assert response.json()["fold_change"] < saturating.json()["fold_change"]
 
 
-def test_foldchange_warns_when_pull_has_no_documented_precedent():
+def test_foldchange_warns_when_pull_has_no_documented_improvement():
     response = client.post("/foldchange", json={
         "k_ck": 10.0, "k_open": 0.001, "pull": 75.0, "luckey": 500.0,
         "k_target": None, "target_conc": None,
     })
     assert response.status_code == 200
-    assert "no documented precedent" in response.json()["warnings"][0]
+    assert "no documented improvement" in response.json()["warnings"][0]
 
 
 def test_foldchange_rejects_non_positive_k_ck():
@@ -64,6 +64,20 @@ def test_foldchange_rejects_negative_pull():
     })
     assert response.status_code == 400
     assert response.json()["error"]["field"] == "pull"
+
+
+def test_foldchange_reports_undefined_result_instead_of_crashing_or_nan():
+    # k_ck this small underflows to 0.0 once converted nM->M, which would
+    # otherwise blow up thermo.py with a ZeroDivisionError (a real 500 we hit
+    # while auditing) instead of a clean, spec-worded 400.
+    response = client.post("/foldchange", json={
+        "k_ck": 1e-310, "k_open": 0.001, "pull": 10.0, "luckey": 500.0,
+        "k_target": None, "target_conc": None,
+    })
+    assert response.status_code == 400
+    body = response.json()
+    assert body["error"]["code"] == "UNDEFINED_RESULT"
+    assert body["error"]["message"] == "Parameters produce an undefined result — check K_open and K_CK."
 
 
 def test_foldchange_rejects_lone_target_conc_without_k_target():

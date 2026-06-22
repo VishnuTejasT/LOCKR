@@ -12,6 +12,7 @@ from fastapi import APIRouter
 
 from lockr.engine import liability
 
+from ..errors import ApiError
 from ..schemas.scan import (
     AcidicResidue, HelixFlag, KckPenalty, PerPosition, ScanRequest, ScanResponse,
     ScanResultItem, SuggestRequest, SuggestResponse, SuggestedVariant, Substitution,
@@ -19,14 +20,37 @@ from ..schemas.scan import (
 
 router = APIRouter()
 
+
+def _validate_window_and_preserve(window, preserve_positions: list[int], length: int,
+                                  window_field: str, preserve_field: str) -> None:
+    # Unlike Window.clamped (used to derive the *effective* window for scoring),
+    # this is the spec 8 "out of range -> reject" gate -- callers must send a
+    # window/preserve_positions that's actually valid for the sequence they sent,
+    # not rely on us silently fixing it up for them.
+    if not (1 <= window.start <= length):
+        raise ApiError("VALIDATION_ERROR", f"window start must be within 1-{length}", field=f"{window_field}.start")
+    if not (1 <= window.end <= length):
+        raise ApiError("VALIDATION_ERROR", f"window end must be within 1-{length}", field=f"{window_field}.end")
+    for pos in preserve_positions:
+        if not (1 <= pos <= length):
+            raise ApiError("VALIDATION_ERROR", f"preserve_positions entry {pos} must be within 1-{length}",
+                          field=preserve_field)
+
+# Verbatim from spec 8 -- the one server-side warning condition the spec
+# actually documents (the live frontend check is just an early heads-up on
+# the typed-in length; this is the authoritative one tied to the sequence
+# that was actually scanned).
+_LONG_SEQUENCE_THRESHOLD = 200
+_LONG_SEQUENCE_WARNING = "long sequence — liability model tuned for peptide-scale binders"
+
 # Verbatim from spec 9.2 -- UI copy, not engine output.
 _KCK_NOTES = {
-    "Low": "There are not any acidic residues in the sensitive region, so K_CK"
+    "Low": "There are not any acidic residues in the sensitive region, so K_CK "
            "affinity should be preserved.",
     "Moderate": "There are some acidic residues in the sensitive region, so K_CK may be partially "
                 "weakened. Look over the flagged residues.",
     "High": "There are a lot of acidic residues in the sensitive region, so K_CK affinity is likely to be significantly "
-            "hindered. Strongly consider the recommended charge-optimized"
+            "hindered. Strongly consider the recommended charge-optimized "
             "variant.",
 }
 
@@ -70,6 +94,10 @@ def _scan_one(sequence: str, start: int, end: int, ph: float, policy: str,
         estimated_kck_nm=variant.K_CK_estimate * 1e9,
     )]
 
+    warnings = []
+    if len(sequence) > _LONG_SEQUENCE_THRESHOLD:
+        warnings.append(_LONG_SEQUENCE_WARNING)
+
     return ScanResultItem(
         id="",
         sequence=sequence,
@@ -84,6 +112,7 @@ def _scan_one(sequence: str, start: int, end: int, ph: float, policy: str,
         per_position=per_position,
         helix_flags=helix_flags,
         suggested_variants=suggested,
+        warnings=warnings,
     )
 
 
@@ -91,7 +120,10 @@ def _scan_one(sequence: str, start: int, end: int, ph: float, policy: str,
 def scan(request: ScanRequest) -> ScanResponse:
     results = []
     for item in request.sequences:
-        start, end = request.sensitive_window.clamped(len(item.sequence))
+        length = len(item.sequence)
+        _validate_window_and_preserve(request.sensitive_window, request.preserve_positions, length,
+                                      window_field="sensitive_window", preserve_field="preserve_positions")
+        start, end = request.sensitive_window.clamped(length)
         result = _scan_one(item.sequence, start, end, request.ph, request.substitution_policy,
                            request.preserve_positions)
         result.id = item.id
@@ -101,7 +133,10 @@ def scan(request: ScanRequest) -> ScanResponse:
 
 @router.post("/suggest", response_model=SuggestResponse)
 def suggest(request: SuggestRequest) -> SuggestResponse:
-    start, end = request.sensitive_window.clamped(len(request.sequence))
+    length = len(request.sequence)
+    _validate_window_and_preserve(request.sensitive_window, request.preserve_positions, length,
+                                  window_field="sensitive_window", preserve_field="preserve_positions")
+    start, end = request.sensitive_window.clamped(length)
     variant = liability.suggest_variant(request.sequence, preserve_positions=request.preserve_positions,
                                         policy=request.substitution_policy, window=(start, end))
     suggested = SuggestedVariant(

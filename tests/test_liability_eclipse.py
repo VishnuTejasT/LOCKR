@@ -12,7 +12,7 @@ def test_original_flags_six_acidic_at_documented_positions():
     r = liability.scan_liability(ORIGINAL, preserve_positions=calibration.PFLDH_INTERFACE)
     assert [l.position for l in r.liabilities] == [4, 6, 8, 13, 14, 16]
     assert r.penalty_total == pytest.approx(4.8)
-    assert r.liability_band == "high"
+    assert r.liability_band == "High"
 
 
 def test_original_kck_estimate():

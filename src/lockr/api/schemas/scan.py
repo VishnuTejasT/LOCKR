@@ -93,6 +93,7 @@ class ScanResultItem(BaseModel):
     per_position: list[PerPosition]
     helix_flags: list[HelixFlag]
     suggested_variants: list[SuggestedVariant]
+    warnings: list[str] = []
 
 
 class ScanResponse(BaseModel):
