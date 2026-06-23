@@ -161,7 +161,7 @@ def main() -> None:
 
     # lockr serve
     serve = subparsers.add_parser("serve", help="run the LOCKR API locally")
-    serve.add_argument("--port", type=int, default=8420)
+    serve.add_argument("--port", type=int, default=8000)
 
     # lockr scan
     scan = subparsers.add_parser("scan", help="scan a sequence for CK-binding liability")

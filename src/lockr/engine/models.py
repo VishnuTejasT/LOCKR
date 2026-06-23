@@ -131,18 +131,12 @@ class VariantSuggestion:
     K_CK_estimate: float = 0.0
 
 
-# --- Phase 1.5: assembly.py's input types. Positions are 1-indexed, inclusive,
-# matching BinderSequence.residues() above. liability.py never imports these;
-# the dependency only runs the other way (assembly.py -> models.py).
+
 
 @dataclass
 class ProtectedRegion:
-    """A motif that must never be altered -- e.g. ECLIPSE's SmBiT fragment.
-
-    Hard constraint, not a score: unlike liability.py's preserve_positions
-    (a soft tradeoff against affinity), mutating this kills function outright.
-    motif/start/end are caller-supplied; nothing here assumes SmBiT or any
-    other specific reporter.
+    """
+    Basically, this is a segment of the latch that can NEVER be mutated, and the engine will make sure it isnt changed. An example of this is the SmBit Luciferase fragment in the ECLIPSE LOCKR system.
     """
 
     motif: str
