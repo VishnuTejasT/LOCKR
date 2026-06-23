@@ -1,21 +1,91 @@
 
 const calcState = { result: null, sweepLuckey: null, sweepKopen: null };
 
+// "kd" or "dg" -- which mode the K_target entry is in
+let calcKtargetMode = "kd";
+let calcKdLastValue = ""; // saved when toggling to dG mode
+
 function calcEl(id) { return document.getElementById(id); }
 
+// compute Kd (nM) from dG fields; returns null if inputs are missing/invalid
+function calcDgComputeKd() {
+  const dgStr = calcEl("calc-dg-score").value.trim();
+  if (!dgStr) return null;
+  const dg = parseFloat(dgStr);
+  if (!isFinite(dg)) return null;
+
+  const refDgStr = calcEl("calc-dg-ref-dg").value.trim();
+  const refKdStr = calcEl("calc-dg-ref-kd").value.trim();
+  if (refDgStr && refKdStr) {
+    const refDg = parseFloat(refDgStr);
+    const refKd = parseFloat(refKdStr);
+    if (isFinite(refDg) && isFinite(refKd) && refKd > 0) {
+      // anchored ddG form: Kd = ref_Kd * exp((dG - ref_dG) / RT)
+      return refKd * Math.exp((dg - refDg) / RT_KCAL_MOL);
+    }
+  }
+  // unanchored: rough estimate only
+  return Math.exp(dg / RT_KCAL_MOL) * 1e9;
+}
+
+function calcDgUpdateDerived() {
+  if (calcKtargetMode !== "dg") return;
+  const dgStr = calcEl("calc-dg-score").value.trim();
+  const derivedRow = calcEl("calc-dg-derived-row");
+  const derivedEl = calcEl("calc-dg-derived");
+  const warnEl = calcEl("calc-dg-no-anchor-warn");
+
+  if (!dgStr) { derivedRow.style.display = "none"; return; }
+
+  const kd = calcDgComputeKd();
+  if (kd === null) { derivedRow.style.display = "none"; return; }
+
+  derivedRow.style.display = "block";
+  derivedEl.textContent = `Computed K_target = ${formatConcNm(kd)} (${roundSig(kd, 4)} nM)`;
+
+  const refDgStr = calcEl("calc-dg-ref-dg").value.trim();
+  const refKdStr = calcEl("calc-dg-ref-kd").value.trim();
+  const hasAnchor = refDgStr && refKdStr &&
+                    isFinite(parseFloat(refDgStr)) && parseFloat(refKdStr) > 0;
+  warnEl.style.display = hasAnchor ? "none" : "block";
+}
+
+function calcKtargetSetMode(mode) {
+  calcKtargetMode = mode;
+  document.querySelectorAll("#calc-ktarget-mode-seg button").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.kmode === mode);
+  });
+  if (mode === "kd") {
+    calcEl("calc-ktarget-kd-panel").style.display = "block";
+    calcEl("calc-ktarget-dg-panel").style.display = "none";
+    if (calcKdLastValue !== "") calcEl("calc-ktarget").value = calcKdLastValue;
+  } else {
+    calcKdLastValue = calcEl("calc-ktarget").value;
+    calcEl("calc-ktarget-kd-panel").style.display = "none";
+    calcEl("calc-ktarget-dg-panel").style.display = "block";
+    calcDgUpdateDerived();
+  }
+  calcUpdateValidity();
+}
+
 function calcReadFields() {
+  let kTarget;
+  if (calcKtargetMode === "dg") {
+    kTarget = calcDgComputeKd(); // null if empty, positive number otherwise
+  } else {
+    kTarget = calcEl("calc-ktarget").value === "" ? null : parseFloat(calcEl("calc-ktarget").value);
+  }
   return {
     k_ck: parseFloat(calcEl("calc-kck").value),
     k_open: parseFloat(calcEl("calc-kopen").value),
     pull: parseFloat(calcEl("calc-pull").value),
     luckey: parseFloat(calcEl("calc-luckey").value),
-    k_target: calcEl("calc-ktarget").value === "" ? null : parseFloat(calcEl("calc-ktarget").value),
+    k_target: kTarget,
     target_conc: calcEl("calc-targetconc").value === "" ? null : parseFloat(calcEl("calc-targetconc").value),
   };
 }
 
-// Mirrors the backend's own validation (positive core params, pull >= 0,
-// k_target/target_conc paired) so Calculate disables before a bad request goes out.
+// mirrors backend validation so Calculate disables before a bad request
 function calcValidate(values) {
   const errors = {};
   ["k_ck", "k_open", "luckey"].forEach((field) => {
@@ -36,20 +106,31 @@ function calcValidate(values) {
 
 function calcShowFieldErrors(errors) {
   ["k_ck", "k_open", "pull", "luckey", "k_target", "target_conc"].forEach((field) => {
-    const input = document.querySelector(`[data-calc-field="${field}"]`);
     const errEl = document.querySelector(`[data-calc-error="${field}"]`);
     const msg = errors[field];
-    input.classList.toggle("invalid", Boolean(msg));
-    if (errEl) errEl.textContent = msg || "";
+    if (field === "k_target" && calcKtargetMode === "dg") {
+      // route k_target errors to the dG input, not the hidden Kd input
+      const dgInput = calcEl("calc-dg-score");
+      const dgErrEl = calcEl("calc-dg-score-error");
+      if (dgInput) dgInput.classList.toggle("invalid", Boolean(msg));
+      if (dgErrEl) dgErrEl.textContent = msg || "";
+      // clear hidden Kd input styling
+      const kdInput = calcEl("calc-ktarget");
+      if (kdInput) kdInput.classList.remove("invalid");
+      if (errEl) errEl.textContent = "";
+    } else {
+      const input = document.querySelector(`[data-calc-field="${field}"]`);
+      if (input) input.classList.toggle("invalid", Boolean(msg));
+      if (errEl) errEl.textContent = msg || "";
+    }
   });
 }
 
-// pull > 50 has no significance in our documented ECLIPSE runs...
+// pull > 50 has no significance in our documented ECLIPSE runs
 function calcCheckPullWarning(values) {
   const warnEl = calcEl("calc-pull-warning");
   warnEl.style.display = values.pull > 50 ? "block" : "none";
 }
-
 
 function calcUpdateDerivedKopenEff(values) {
   const el = calcEl("calc-kopen-eff-derived");
@@ -66,6 +147,7 @@ function calcUpdateValidity() {
   calcShowFieldErrors(errors);
   calcCheckPullWarning(values);
   calcUpdateDerivedKopenEff(values);
+  calcDgUpdateDerived();
   calcEl("calc-submit").disabled = Object.keys(errors).length > 0;
   return { values, errors };
 }
@@ -111,7 +193,6 @@ function calcRenderVerdict(result) {
     warningsEl.appendChild(div);
   });
 }
-
 
 function autoSweepRange(value) {
   return { min: value / 1000, max: value * 1000, steps: 60, scale: "log" };
@@ -170,6 +251,14 @@ async function calcSubmit() {
 function calcReset() {
   calcEl("calc-form").reset();
   calcDetachPill();
+  calcKdLastValue = "";
+  calcKtargetMode = "kd";
+  document.querySelectorAll("#calc-ktarget-mode-seg button").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.kmode === "kd");
+  });
+  calcEl("calc-ktarget-kd-panel").style.display = "block";
+  calcEl("calc-ktarget-dg-panel").style.display = "none";
+  calcEl("calc-dg-derived-row").style.display = "none";
   calcUpdateValidity();
   calcEl("calc-empty-state").style.display = "block";
   calcEl("calc-results").style.display = "none";
@@ -198,6 +287,19 @@ function initCalculator() {
   });
   // typing in k_ck while pill is showing detaches it (editing IS detaching)
   calcEl("calc-kck").addEventListener("input", calcDetachPill);
+
+  // dG mode toggle
+  document.querySelectorAll("#calc-ktarget-mode-seg button").forEach((btn) => {
+    btn.addEventListener("click", () => calcKtargetSetMode(btn.dataset.kmode));
+  });
+  // dG field inputs -- update derived display and validity
+  ["calc-dg-score", "calc-dg-ref-dg", "calc-dg-ref-kd"].forEach((id) => {
+    calcEl(id).addEventListener("input", () => {
+      calcDgUpdateDerived();
+      calcUpdateValidity();
+    });
+  });
+
   calcEl("calc-submit").addEventListener("click", calcSubmit);
   calcEl("calc-reset").addEventListener("click", calcReset);
   document.addEventListener("tabchange", (e) => {

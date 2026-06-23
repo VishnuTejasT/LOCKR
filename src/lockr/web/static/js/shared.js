@@ -2,6 +2,9 @@
 
 const API_BASE = ""; // same origin... lockr serve hosts API and frontend together
 
+// RT at 37°C in kcal/mol -- used for dG<->Kd conversion in calculator
+const RT_KCAL_MOL = 0.592;
+
 //Scanner writes info here, while Clauclator reads from it.
 window.lockrChain = { pipedKck: null, sourceLabel: null };
 
@@ -17,7 +20,7 @@ function initTabs() {
     btn.addEventListener("click", () => showTab(btn.dataset.tab));
   });
   const initial = location.hash.replace("#", "") || "scanner";
-  showTab(["scanner", "calculator"].includes(initial) ? initial : "scanner");
+  showTab(["scanner", "calculator", "assembly"].includes(initial) ? initial : "scanner");
 }
 
 let toastTimer = null;

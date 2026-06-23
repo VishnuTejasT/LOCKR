@@ -14,6 +14,7 @@
     <nav class="tabs">
       <button data-tab="scanner">Scanner</button>
       <button data-tab="calculator">Calculator</button>
+      <button data-tab="assembly">Assembly Check</button>
     </nav>
     <a href="https://gitlab.igem.org" target="_blank" rel="noopener">Docs ↗</a>
   </div>
@@ -256,12 +257,49 @@
             <details class="advanced">
               <summary>Advanced/Target-binding</summary>
               <div class="card">
-                <div class="field-row">
-                  <label for="calc-ktarget">K_target <span class="unit-suffix">nM</span></label>
-                  <input id="calc-ktarget" data-calc-field="k_target" type="number" step="any" placeholder="from docking (e.g. ADCP)">
-                  <div class="field-error" data-calc-error="k_target"></div>
+                <div class="field-row" style="margin-bottom:12px;">
+                  <label style="margin-bottom:6px;">Enter K_target as</label>
+                  <div class="segmented" id="calc-ktarget-mode-seg">
+                    <button type="button" data-kmode="kd" class="active">Kd (nM)</button>
+                    <button type="button" data-kmode="dg">dG (kcal/mol)</button>
+                  </div>
                 </div>
-                <div class="field-row">
+
+                <div id="calc-ktarget-kd-panel">
+                  <div class="field-row">
+                    <label for="calc-ktarget">K_target <span class="unit-suffix">nM</span></label>
+                    <input id="calc-ktarget" data-calc-field="k_target" type="number" step="any" placeholder="from docking (e.g. ADCP)">
+                    <div class="field-error" data-calc-error="k_target"></div>
+                  </div>
+                </div>
+
+                <div id="calc-ktarget-dg-panel" style="display:none;">
+                  <div class="field-row">
+                    <label for="calc-dg-score">dG <span class="unit-suffix">kcal/mol</span></label>
+                    <input id="calc-dg-score" type="number" step="any" placeholder="docking score, e.g. -12.0">
+                    <div class="field-error" id="calc-dg-score-error"></div>
+                  </div>
+                  <details id="calc-dg-anchor" style="margin-bottom:12px;">
+                    <summary style="cursor:pointer; color:var(--brand-700); font-weight:500; font-size:14px;">Anchor to reference Kd (recommended)</summary>
+                    <div style="margin-top:8px; padding:12px 16px; background:var(--canvas); border:1px solid var(--border-strong); border-radius:var(--radius-md);">
+                      <div class="help-text" style="margin-bottom:12px;">If you have a known Kd for a related construct (e.g. from MD or wet-lab), anchor your conversion for a real absolute Kd. Without an anchor, this uses kT alone and may be off by orders of magnitude — treat it as directional, not exact.</div>
+                      <div class="field-row">
+                        <label for="calc-dg-ref-dg">Reference dG <span class="unit-suffix">kcal/mol</span></label>
+                        <input id="calc-dg-ref-dg" type="number" step="any" placeholder="e.g. -12.0">
+                      </div>
+                      <div class="field-row" style="margin-bottom:0;">
+                        <label for="calc-dg-ref-kd">Reference Kd <span class="unit-suffix">nM</span></label>
+                        <input id="calc-dg-ref-kd" type="number" step="any" placeholder="e.g. 100">
+                      </div>
+                    </div>
+                  </details>
+                  <div id="calc-dg-derived-row" style="display:none;">
+                    <div class="font-mono" style="font-size:13px;" id="calc-dg-derived">Computed K_target = —</div>
+                    <div id="calc-dg-no-anchor-warn" class="help-text" style="color:var(--warning-700); margin-top:4px; display:none;">Rough estimate only — no anchor supplied. May be off by orders of magnitude; treat as directional.</div>
+                  </div>
+                </div>
+
+                <div class="field-row" style="margin-top:12px;">
                   <label for="calc-targetconc">target<span class="unit-suffix">nM</span></label>
                   <input id="calc-targetconc" data-calc-field="target_conc" type="number" step="any" placeholder="Leave blank if saturated">
                   <div class="field-error" data-calc-error="target_conc"></div>
@@ -321,6 +359,147 @@
     </div>
   </section>
 
+  <section class="tab-panel" data-tab="assembly">
+    <div class="screen-header">
+      <h1>Assembly Check</h1>
+      <p>Verify that a grafted sequence is correctly assembled — binder is in place, protected regions are intact, and the graft fits the latch window.</p>
+    </div>
+
+    <div class="two-col">
+      <div>
+        <div class="card">
+          <form id="asm-form">
+
+            <div class="field-row">
+              <label for="asm-sequence">Full sequence</label>
+              <div class="seq-scroll">
+                <textarea id="asm-sequence" class="font-mono" rows="5" placeholder="Paste the full assembled protein sequence (standard amino acids)"></textarea>
+              </div>
+              <div class="field-error" id="asm-sequence-error"></div>
+            </div>
+
+            <div class="field-row">
+              <label>Graftable latch window</label>
+              <div class="help-text" style="margin-bottom:6px;">The part of the latch where you can insert a binder. The full latch = protected motif + this window, but the protected motif can't be grafted into — enter only the graftable portion here.</div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <input id="asm-lw-start" type="number" min="1" step="1" placeholder="start" style="width:90px;">
+                <span class="help-text">to</span>
+                <input id="asm-lw-end" type="number" min="1" step="1" placeholder="end" style="width:90px;">
+              </div>
+              <div style="display:flex; gap:8px; margin-top:4px;">
+                <div class="field-error" id="asm-lw-start-error" style="flex:1;"></div>
+                <div class="field-error" id="asm-lw-end-error" style="flex:1;"></div>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <label>Binder</label>
+              <div style="display:grid; grid-template-columns:1fr 110px; gap:8px; align-items:start;">
+                <div>
+                  <input id="asm-binder" type="text" class="font-mono" placeholder="Binder sequence (e.g. LISAAALAAIFAAALAC)" style="width:100%;">
+                  <div class="field-error" id="asm-binder-error"></div>
+                </div>
+                <div>
+                  <input id="asm-binder-start" type="number" min="1" step="1" placeholder="start pos" style="width:100%;">
+                  <div class="field-error" id="asm-binder-start-error"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <label>Spacer <span class="unit-suffix">optional</span></label>
+              <div style="display:grid; grid-template-columns:1fr 110px; gap:8px; align-items:start;">
+                <input id="asm-spacer" type="text" class="font-mono" placeholder="Spacer sequence (e.g. DA)" style="width:100%;">
+                <input id="asm-spacer-start" type="number" min="1" step="1" placeholder="start pos" style="width:100%;">
+              </div>
+              <div class="field-error" id="asm-spacer-start-error"></div>
+              <div class="help-text">Pre-existing scaffold gap between segments — leave blank if none.</div>
+            </div>
+
+            <div class="field-row" style="margin-bottom:8px;">
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                <input type="checkbox" id="asm-tandem-cb" style="width:auto; height:auto; cursor:pointer;">
+                Tandem / multi-copy graft (linker + second binder)
+              </label>
+            </div>
+
+            <div id="asm-tandem-fields" style="display:none;">
+              <div style="padding-left:16px; border-left:2px solid var(--border-strong);">
+                <div class="field-row">
+                  <label>Linker</label>
+                  <div style="display:grid; grid-template-columns:1fr 110px; gap:8px; align-items:start;">
+                    <input id="asm-linker" type="text" class="font-mono" placeholder="Linker sequence" style="width:100%;">
+                    <input id="asm-linker-start" type="number" min="1" step="1" placeholder="start pos" style="width:100%;">
+                  </div>
+                  <div class="field-error" id="asm-linker-start-error"></div>
+                </div>
+                <div class="field-row">
+                  <label>Binder 2</label>
+                  <div style="display:grid; grid-template-columns:1fr 110px; gap:8px; align-items:start;">
+                    <input id="asm-binder2" type="text" class="font-mono" placeholder="Second binder sequence" style="width:100%;">
+                    <input id="asm-binder2-start" type="number" min="1" step="1" placeholder="start pos" style="width:100%;">
+                  </div>
+                  <div class="field-error" id="asm-binder2-start-error"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <label>Protected motif</label>
+              <div class="help-text" style="margin-bottom:6px;">The sequence that must stay untouched (e.g. your reporter fragment)</div>
+              <input id="asm-pr-motif" type="text" class="font-mono" placeholder="Motif sequence (e.g. VTGYRLFEEIL)">
+              <div class="field-error" id="asm-pr-motif-error"></div>
+              <div style="display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap;">
+                <input id="asm-pr-start" type="number" min="1" step="1" placeholder="start" style="width:90px;">
+                <span class="help-text">to</span>
+                <input id="asm-pr-end" type="number" min="1" step="1" placeholder="end" style="width:90px;">
+                <input id="asm-pr-label" type="text" placeholder="label (e.g. SmBiT)" style="width:140px;">
+              </div>
+              <div style="display:flex; gap:8px; margin-top:4px;">
+                <div class="field-error" id="asm-pr-start-error" style="flex:1;"></div>
+                <div class="field-error" id="asm-pr-end-error" style="flex:1;"></div>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <label for="asm-total-length">Expected total length <span class="unit-suffix">optional</span></label>
+              <input id="asm-total-length" type="number" min="1" step="1" placeholder="e.g. 359" style="width:120px;">
+            </div>
+
+            <div class="field-row" style="display:flex; gap:8px; margin-top:24px;">
+              <button type="button" id="asm-submit" class="btn-primary" disabled>Verify</button>
+              <button type="button" id="asm-reset" class="btn-ghost">Reset</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div>
+        <div id="asm-empty-state" class="empty-state">
+          Fill in the assembly details and click Verify to run the structural checklist.
+        </div>
+        <div id="asm-results" style="display:none;">
+          <div class="card">
+            <div id="asm-summary"></div>
+            <div id="asm-check-list"></div>
+          </div>
+          <div class="card" style="margin-top:16px;">
+            <h2 class="font-display" style="font-size:18px; margin-bottom:10px;">Sequence map</h2>
+            <div style="display:flex; gap:16px; flex-wrap:wrap; font-size:13px; margin-bottom:12px;">
+              <span><span class="asm-hl asm-hl--protected" style="padding:1px 5px; border-radius:3px;">AA</span> Protected motif</span>
+              <span><span class="asm-hl asm-hl--latch" style="padding:1px 5px; border-radius:3px;">AA</span> Latch (graftable)</span>
+              <span><span class="asm-hl asm-hl--spacer" style="padding:1px 5px; border-radius:3px;">AA</span> Spacer</span>
+              <span><span class="asm-hl asm-hl--binder" style="padding:1px 5px; border-radius:3px;">AA</span> Binder</span>
+            </div>
+            <div class="seq-scroll">
+              <div id="asm-seq-display" class="asm-seq-display"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
 </main>
 
 <footer class="app-footer">
@@ -331,5 +510,6 @@
 <script src="/static/js/plot.js"></script>
 <script src="/static/js/calculator.js"></script>
 <script src="/static/js/scanner.js"></script>
+<script src="/static/js/assembly.js"></script>
 </body>
 </html>

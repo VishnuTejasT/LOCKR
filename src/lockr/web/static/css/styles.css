@@ -494,3 +494,27 @@ textarea#scan-sequence { font-size: 15px; letter-spacing: 1px; }
 .batch-table tbody tr { cursor: pointer; }
 .batch-table tbody tr:hover td { background: var(--brand-050); }
 .batch-table tbody tr:last-child td { border-bottom: none; }
+
+/* assembly check pass/fail badges */
+.badge-pass { background: var(--success-100); color: var(--success-700); }
+.badge-fail { background: var(--danger-100); color: var(--danger-700); }
+
+/* assembly check result rows */
+.asm-check-row { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.asm-check-row:last-child { border-bottom: none; }
+.asm-check-content { flex: 1; }
+.asm-check-name { font-size: 14px; font-weight: 500; line-height: 20px; }
+.asm-check-detail { font-size: 13px; color: var(--text-muted); margin-top: 2px; font-family: var(--font-mono); }
+.asm-summary-pass { color: var(--success-700); font-weight: 600; font-size: 16px; margin-bottom: 12px; }
+.asm-summary-fail { color: var(--danger-700); font-weight: 600; font-size: 16px; margin-bottom: 12px; }
+
+/* sequence map */
+.asm-seq-display { font-family: var(--font-mono); font-size: 14px; line-height: 22px; }
+.asm-seq-line { display: flex; align-items: baseline; margin-bottom: 1px; }
+.asm-seq-linenum { min-width: 40px; color: var(--text-muted); font-size: 11px; user-select: none; padding-right: 8px; flex-shrink: 0; }
+.asm-seq-line span { display: inline-block; }
+.asm-hl { border-radius: 2px; }
+.asm-hl--binder    { background: rgba(185, 28, 28, 0.18); color: var(--danger-700); font-weight: 700; }
+.asm-hl--protected { background: rgba(21, 128, 61, 0.2);  color: var(--success-700); font-weight: 700; }
+.asm-hl--latch     { background: rgba(180, 83, 9, 0.15);  color: var(--warning-700); }
+.asm-hl--spacer    { background: rgba(37, 99, 235, 0.15); color: #1d4ed8; font-weight: 600; }
