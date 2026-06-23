@@ -46,7 +46,7 @@ Then, you have two options to actually run the program.
    lockr scan SEQUENCE --json    # Accepts FASTA files, raw files, or even a mix of both!
    lockr scan --file sequences.fasta      # Accepts FASTA files, raw files, or even a mix of both!
    lockr scan --file sequences.fasta --json     # Accepts FASTA files, raw files, or even a mix of both!
-   '''
+   ```
    AND 
    ```
    lockr fc --k-ck FLOAT --k-open FLOAT --pull FLOAT --luckey FLOAT
