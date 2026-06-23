@@ -28,8 +28,8 @@ lockr --help
 
 Then, you have two options to actually run the program. 
    1. The first option is to run the tool through the web app. To do this, run the follwoing command:
-   '''
+   ```
    lockr serve
-   '''
+   ```
 
    2. 
