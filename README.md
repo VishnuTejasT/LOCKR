@@ -31,5 +31,36 @@ Then, you have two options to actually run the program.
    ```
    lockr serve
    ```
+   Then, open the link that is provided
 
-   2. 
+   2. The second option is to run the tool through the integrated CLI. There are 2 commands associated with this:
+   
+   "lockr scan" runs the scanner portion, while 'lockr fc" runs the fold-chnage calculation portion.
+   ```
+   lockr scan SEQUENCE
+   lockr scan SEQUENCE --ph 7.4     #User can specify the pH of the hypothetical/inteded solution.
+   lockr scan SEQUENCE --window 1:17 
+   lockr scan SEQUENCE --preserve 1,2,11,12,15     #User can choose to preserve specific aa residues on the binder, to prevent their mutation.
+   lockr scan SEQUENCE --policy conservative / neutralizing    # User can choose b/w conservation mutations or neutralizing mutations of liable residues in the binder.
+   lockr scan SEQUENCE --suggest / --no-suggest
+   lockr scan SEQUENCE --json    # Accepts FASTA files, raw files, or even a mix of both!
+   lockr scan --file sequences.fasta      # Accepts FASTA files, raw files, or even a mix of both!
+   lockr scan --file sequences.fasta --json     # Accepts FASTA files, raw files, or even a mix of both!
+   '''
+   AND 
+   ```
+   lockr fc --k-ck FLOAT --k-open FLOAT --pull FLOAT --luckey FLOAT
+   lockr fc --k-ck FLOAT --k-open FLOAT --pull FLOAT --luckey FLOAT --k-target FLOAT --target FLOAT
+   lockr fc --k-ck FLOAT --k-open FLOAT --pull FLOAT --luckey FLOAT --json
+   ```
+
+   Here are additional commands for more help:
+   ```
+   lockr --help
+   lockr scan --help
+   lockr fc --help
+   lockr serve --help
+   python3 -m lockr.cli          # Another entry point that also works
+   ```
+   
+
