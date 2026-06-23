@@ -362,7 +362,7 @@
   <section class="tab-panel" data-tab="assembly">
     <div class="screen-header">
       <h1>Assembly Check</h1>
-      <p>Verify that a grafted sequence is correctly assembled — binder is in place, protected regions are intact, and the graft fits the latch window.</p>
+      <p>Use this tool to verify that you LOCKR system's sequence is correct,a dn that the binder, protected region, and overall latch are secure and in the current position.</p>
     </div>
 
     <div class="two-col">
@@ -380,7 +380,7 @@
 
             <div class="field-row">
               <label>Graftable latch window</label>
-              <div class="help-text" style="margin-bottom:6px;">The part of the latch where you can insert a binder. The full latch = protected motif + this window, but the protected motif can't be grafted into — enter only the graftable portion here.</div>
+              <div class="help-text" style="margin-bottom:6px;">This is the part of the latch where your binder can be inserted. This graftable area of the latch DOES NOT include your protected region!</div>
               <div style="display:flex; align-items:center; gap:8px;">
                 <input id="asm-lw-start" type="number" min="1" step="1" placeholder="start" style="width:90px;">
                 <span class="help-text">to</span>
@@ -413,13 +413,13 @@
                 <input id="asm-spacer-start" type="number" min="1" step="1" placeholder="start pos" style="width:100%;">
               </div>
               <div class="field-error" id="asm-spacer-start-error"></div>
-              <div class="help-text">Pre-existing scaffold gap between segments — leave blank if none.</div>
+              <div class="help-text">This is the pre-existing gap between the binder and protected region.</div>
             </div>
 
             <div class="field-row" style="margin-bottom:8px;">
               <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
                 <input type="checkbox" id="asm-tandem-cb" style="width:auto; height:auto; cursor:pointer;">
-                Tandem / multi-copy graft (linker + second binder)
+                Use this advanced setting if your LOCKR system utilizes tandem binding domains (e.g. two binders separated by a linker)!
               </label>
             </div>
 
@@ -446,7 +446,7 @@
 
             <div class="field-row">
               <label>Protected motif</label>
-              <div class="help-text" style="margin-bottom:6px;">The sequence that must stay untouched (e.g. your reporter fragment)</div>
+              <div class="help-text" style="margin-bottom:6px;">This is the sequence that remains untouched in the final graft (e.g. your luciferase fragment)!</div>
               <input id="asm-pr-motif" type="text" class="font-mono" placeholder="Motif sequence (e.g. VTGYRLFEEIL)">
               <div class="field-error" id="asm-pr-motif-error"></div>
               <div style="display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap;">
@@ -476,7 +476,7 @@
 
       <div>
         <div id="asm-empty-state" class="empty-state">
-          Fill in the assembly details and click Verify to run the structural checklist.
+          Fill in the required sections of this form and click verify to run natural checks on the LOCKR system's sequence and assembly!
         </div>
         <div id="asm-results" style="display:none;">
           <div class="card">
