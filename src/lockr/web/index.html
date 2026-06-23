@@ -31,20 +31,45 @@
       <div>
         <div class="card">
           <form id="scan-form">
-            <div class="field-row">
-              <label for="scan-sequence">Sequence</label>
-              <div class="seq-scroll">
-                <textarea id="scan-sequence" class="font-mono" rows="3" placeholder="Paste a binder sequence (standard amino acids only!)"></textarea>
-                <div id="scan-live-residues" class="seq-residues" aria-hidden="true"></div>
-                <div id="scan-ruler" class="seq-ruler" aria-hidden="true"></div>
+            <div class="field-row" style="margin-bottom:20px;">
+              <div class="segmented" id="scan-mode-segmented">
+                <button type="button" data-mode="single" class="active">Single</button>
+                <button type="button" data-mode="batch">Batch</button>
               </div>
-              <div class="seq-footer help-text">
-                <span id="scan-charcount">0 residues</span>
-                <span id="scan-decount">0 D/E</span>
-                <span id="scan-netcharge-live">net charge (rough) ~0</span>
+            </div>
+
+            <div id="scan-single-input">
+              <div class="field-row">
+                <label for="scan-sequence">Sequence</label>
+                <div class="seq-scroll">
+                  <textarea id="scan-sequence" class="font-mono" rows="3" placeholder="Paste a binder sequence (standard amino acids only!)"></textarea>
+                  <div id="scan-live-residues" class="seq-residues" aria-hidden="true"></div>
+                  <div id="scan-ruler" class="seq-ruler" aria-hidden="true"></div>
+                </div>
+                <div class="seq-footer help-text">
+                  <span id="scan-charcount">0 residues</span>
+                  <span id="scan-decount">0 D/E</span>
+                  <span id="scan-netcharge-live">net charge (rough) ~0</span>
+                </div>
+                <div id="scan-longseq-warning" class="help-text" style="display:none; color: var(--warning-700);">long sequence — liability model tuned for peptide-scale binders</div>
+                <div class="field-error" id="scan-sequence-error"></div>
               </div>
-              <div id="scan-longseq-warning" class="help-text" style="display:none; color: var(--warning-700);">long sequence — liability model tuned for peptide-scale binders</div>
-              <div class="field-error" id="scan-sequence-error"></div>
+            </div>
+
+            <div id="scan-batch-input" style="display:none;">
+              <div class="field-row">
+                <label>Sequences</label>
+                <div id="scan-batch-dropzone" class="batch-dropzone">
+                  <textarea id="scan-batch-text" class="font-mono" rows="8" placeholder="Paste sequences (one per line), FASTA, or mixed — or drag &amp; drop a file here.&#10;&#10;Example:&#10;&gt;binder_v1&#10;LISDAELEAIFAEELDC&#10;LISAAALAAIFAAALAC"></textarea>
+                </div>
+                <div class="seq-footer help-text" style="margin-top:6px;">
+                  <span id="scan-batch-count">0 sequences</span>
+                  <button type="button" id="scan-batch-upload-btn" class="btn-ghost" style="height:28px; padding:0 10px; font-size:13px; margin-left:auto;">Upload file</button>
+                  <input type="file" id="scan-batch-file" accept=".fa,.fasta,.txt" style="display:none;">
+                </div>
+                <div id="scan-batch-parse-errors" style="display:none;"></div>
+                <div class="field-error" id="scan-batch-error"></div>
+              </div>
             </div>
 
             <details class="advanced">
@@ -54,7 +79,7 @@
                   <label for="scan-ph">pH</label>
                   <input id="scan-ph" type="number" step="0.1" min="0" max="14" value="7.4">
                 </div>
-                <div class="field-row">
+                <div class="field-row" id="scan-adv-window-row">
                   <label>Sensitive window</label>
                   <div style="display:flex; align-items:center; gap:8px;">
                     <input id="scan-window-start" type="number" min="1" value="1" style="width:90px;">
@@ -63,7 +88,7 @@
                   </div>
                   <div class="field-error" id="scan-window-error"></div>
                 </div>
-                <div class="field-row">
+                <div class="field-row" id="scan-adv-preserve-row">
                   <label for="scan-preserve">Preserve positions</label>
                   <input id="scan-preserve" type="text" placeholder="e.g. 1,2,11,12,15">
                   <div class="help-text">These are positions/residues that are CRUCIAL for target binding, and can be identified through molecular docking</div>
@@ -160,8 +185,36 @@
             <div class="help-text" style="margin-top:8px;">
               In nanomolar (nM): <span class="font-mono" id="scan-kck-estimate-nm">—</span> → <span class="font-mono" id="scan-variant-kck-estimate-nm">—</span>
             </div>
+            <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+              <button type="button" id="scan-kck-send-btn" class="btn-secondary" style="height:28px; padding:0 10px; font-size:13px; display:none;">→ Send K_CK to Calculator</button>
+              <button type="button" id="scan-variant-kck-send-btn" class="btn-secondary" style="height:28px; padding:0 10px; font-size:13px; display:none;">→ Send Variant K_CK to Calculator</button>
+            </div>
           </div>
         </div>
+
+        <div id="scan-batch-results" style="display:none;">
+          <div id="scan-batch-best-strip" class="batch-best-strip" style="display:none;">
+            <div>Best candidate: <strong id="scan-batch-best-id"></strong> — score <span id="scan-batch-best-score"></span> <span id="scan-batch-best-badge" class="badge"></span></div>
+            <div style="display:flex; gap:8px; flex-shrink:0; flex-wrap:wrap;">
+              <button type="button" id="scan-batch-chain-orig" class="btn-secondary" style="height:28px; padding:0 10px; font-size:13px;">→ Send original K_CK</button>
+              <button type="button" id="scan-batch-chain-variant" class="btn-secondary" style="height:28px; padding:0 10px; font-size:13px;">→ Send variant K_CK</button>
+            </div>
+          </div>
+          <div id="scan-batch-detail-back" style="display:none; margin-bottom:12px; align-items:center;">
+            <button type="button" id="scan-batch-back-btn" class="btn-ghost" style="font-size:13px;">← Back to batch results</button>
+            <span id="scan-batch-detail-label" class="help-text" style="margin-left:8px;"></span>
+          </div>
+          <div id="scan-batch-table-section">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+              <div class="help-text" id="scan-batch-table-label"></div>
+              <button type="button" id="scan-batch-export-btn" class="btn-secondary" style="height:28px; padding:0 10px; font-size:13px;">Export CSV</button>
+            </div>
+            <div class="card" style="padding:0; overflow:hidden;">
+              <div id="scan-batch-table-wrap" style="overflow-x:auto;"></div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </section>
@@ -177,7 +230,7 @@
         <div class="card">
           <form id="calc-form">
             <div class="field-row">
-              <label for="calc-kck">K_CK <span class="unit-suffix">nM</span></label>
+              <label for="calc-kck">K_CK <span class="unit-suffix">nM</span> <span id="calc-kck-pill" class="pill-chain" style="display:none;"></span></label>
               <input id="calc-kck" data-calc-field="k_ck" type="number" step="any" value="10" min="0" placeholder="Identified from Scanner">
               <div class="field-error" data-calc-error="k_ck"></div>
             </div>

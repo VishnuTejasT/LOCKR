@@ -4,6 +4,268 @@ const STANDARD_AA = new Set("ACDEFGHIKLMNPQRSTVWY".split(""));
 const ACIDIC_AA = new Set(["D", "E"]);
 const BASIC_AA = new Set(["K", "R", "H"]);
 
+let scanMode = "single";
+const batchState = { results: [] };
+
+function escHtml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// Parses raw sequences (one per line), FASTA, and mixed in one pass.
+// Returns { records: [{id, sequence}], errors: [{lineNum, message}] }
+function parseBatchInput(text) {
+  const lines = text.split("\n");
+  const records = [];
+  const errors = [];
+  let autoIdx = 0;
+  let i = 0;
+
+  while (i < lines.length) {
+    const trimmed = lines[i].trim();
+    if (trimmed === "") { i++; continue; }
+
+    if (trimmed.startsWith(">")) {
+      const headerLineNum = i + 1;
+      const id = trimmed.slice(1).trim();
+      i++;
+      const seqParts = [];
+      while (i < lines.length && !lines[i].trim().startsWith(">") && lines[i].trim() !== "") {
+        seqParts.push(lines[i].trim().toUpperCase().replace(/\s/g, ""));
+        i++;
+      }
+      const seq = seqParts.join("");
+      if (!seq) {
+        errors.push({ lineNum: headerLineNum, message: `FASTA record "${id || "(empty header)"}": no sequence found` });
+      } else {
+        const bad = [...seq].find(c => !STANDARD_AA.has(c));
+        if (bad) {
+          errors.push({ lineNum: headerLineNum, message: `FASTA record "${id}": non-standard amino acid '${bad}'` });
+        } else {
+          records.push({ id: id || `seq_${++autoIdx}`, sequence: seq });
+        }
+      }
+    } else {
+      const lineNum = i + 1;
+      const seq = trimmed.toUpperCase().replace(/\s/g, "");
+      const bad = [...seq].find(c => !STANDARD_AA.has(c));
+      if (bad) {
+        const preview = trimmed.length > 40 ? trimmed.slice(0, 40) + "…" : trimmed;
+        errors.push({ lineNum, message: `Line ${lineNum}: non-standard character '${bad}' in "${preview}"` });
+      } else {
+        records.push({ id: `seq_${++autoIdx}`, sequence: seq });
+      }
+      i++;
+    }
+  }
+
+  return { records, errors };
+}
+
+// One /scan request per record so each gets its own full-length window.
+// Results are sorted ascending by liability_score (cleanest first).
+async function batchScan(records, ph, policy) {
+  const promises = records.map(rec =>
+    apiPost("/scan", {
+      sequences: [{ id: rec.id, sequence: rec.sequence }],
+      sensitive_window: { start: 1, end: rec.sequence.length },
+      ph,
+      substitution_policy: policy,
+      preserve_positions: [],
+    }).then(data => data.results[0])
+  );
+  const results = await Promise.all(promises);
+  results.sort((a, b) => a.liability_score - b.liability_score);
+  return results;
+}
+
+function updateBatchCount() {
+  const text = document.getElementById("scan-batch-text").value;
+  const { records, errors } = parseBatchInput(text);
+
+  document.getElementById("scan-batch-count").textContent =
+    `${records.length} sequence${records.length !== 1 ? "s" : ""}`;
+
+  const errEl = document.getElementById("scan-batch-parse-errors");
+  if (errors.length > 0) {
+    errEl.style.display = "block";
+    errEl.className = "batch-parse-errors";
+    errEl.innerHTML =
+      `<div class="help-text" style="color:var(--warning-700); font-weight:600;">${errors.length} line${errors.length !== 1 ? "s" : ""} skipped:</div>` +
+      errors.map(e => `<div class="help-text" style="color:var(--warning-700);">• ${escHtml(e.message)}</div>`).join("");
+  } else {
+    errEl.style.display = "none";
+  }
+
+  scanEl("scan-submit").disabled = records.length === 0;
+  document.getElementById("scan-batch-error").textContent = "";
+}
+
+function renderBatchTable(results) {
+  const wrap = document.getElementById("scan-batch-table-wrap");
+  if (results.length === 0) { wrap.innerHTML = ""; return; }
+
+  const table = document.createElement("table");
+  table.className = "batch-table";
+
+  const thead = document.createElement("thead");
+  thead.innerHTML = `<tr>
+    <th>ID</th><th>Length</th><th>Net charge</th>
+    <th>Liability</th><th>Band</th><th>K_CK (nM)</th><th>Top variant</th>
+  </tr>`;
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  results.forEach((r, idx) => {
+    const variant = r.suggested_variants[0];
+    const varSeq = variant ? variant.sequence : "";
+    const varPreview = varSeq ? (varSeq.length > 12 ? varSeq.slice(0, 12) + "…" : varSeq) : "none";
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="font-mono">${escHtml(r.id)}</td>
+      <td>${r.length}</td>
+      <td class="font-mono">${roundSig(r.net_charge, 3)}</td>
+      <td class="font-mono">${roundSig(r.liability_score, 3)}</td>
+      <td><span class="badge badge-${escHtml(r.liability_band)}">${escHtml(r.liability_band)}</span></td>
+      <td class="font-mono">${roundSig(r.estimated_kck_nm, 4)}</td>
+      <td class="font-mono" title="${escHtml(varSeq)}">${escHtml(varPreview)}</td>
+    `;
+    tr.addEventListener("click", () => batchShowDetail(idx));
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+
+  wrap.innerHTML = "";
+  wrap.appendChild(table);
+}
+
+function renderBatchBestStrip(results) {
+  const strip = document.getElementById("scan-batch-best-strip");
+  if (results.length === 0) { strip.style.display = "none"; return; }
+
+  const best = results[0]; // index 0 = lowest liability = best (array is sorted)
+  document.getElementById("scan-batch-best-id").textContent = best.id;
+  document.getElementById("scan-batch-best-score").textContent = roundSig(best.liability_score, 3);
+  const badge = document.getElementById("scan-batch-best-badge");
+  badge.className = `badge badge-${best.liability_band}`;
+  badge.textContent = best.liability_band;
+
+  document.getElementById("scan-batch-chain-orig").onclick = () => {
+    window.lockrChain.pipedKck = best.estimated_kck_nm;
+    window.lockrChain.sourceLabel = `${best.id} (best of batch)`;
+    showTab("calculator");
+  };
+
+  const varBtn = document.getElementById("scan-batch-chain-variant");
+  const variant = best.suggested_variants[0];
+  if (variant) {
+    varBtn.style.display = "";
+    varBtn.onclick = () => {
+      window.lockrChain.pipedKck = variant.estimated_kck_nm;
+      window.lockrChain.sourceLabel = `${best.id} variant (best of batch)`;
+      showTab("calculator");
+    };
+  } else {
+    varBtn.style.display = "none";
+  }
+
+  strip.style.display = "flex";
+}
+
+function batchExportCsv(results) {
+  const header = ["ID", "Length", "Net Charge", "Liability Score", "Band", "K_CK (nM)", "Top Variant"];
+  const rows = results.map(r => [
+    r.id, r.length,
+    roundSig(r.net_charge, 3), roundSig(r.liability_score, 3),
+    r.liability_band, roundSig(r.estimated_kck_nm, 5),
+    r.suggested_variants[0]?.sequence || "",
+  ]);
+  const csv = [header, ...rows]
+    .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "lockr-batch-scan.csv";
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+function batchShowDetail(idx) {
+  const r = batchState.results[idx];
+  document.getElementById("scan-batch-table-section").style.display = "none";
+  document.getElementById("scan-batch-best-strip").style.display = "none";
+  const back = document.getElementById("scan-batch-detail-back");
+  back.style.display = "flex";
+  document.getElementById("scan-batch-detail-label").textContent = r.id;
+  scanRenderResults(r);
+}
+
+function batchShowTable() {
+  document.getElementById("scan-results").style.display = "none";
+  document.getElementById("scan-batch-table-section").style.display = "block";
+  document.getElementById("scan-batch-detail-back").style.display = "none";
+  if (batchState.results.length > 0) {
+    document.getElementById("scan-batch-best-strip").style.display = "flex";
+  }
+}
+
+function setScanMode(mode) {
+  scanMode = mode;
+  document.getElementById("scan-single-input").style.display = mode === "single" ? "block" : "none";
+  document.getElementById("scan-batch-input").style.display = mode === "batch" ? "block" : "none";
+  document.getElementById("scan-adv-window-row").style.display = mode === "single" ? "" : "none";
+  document.getElementById("scan-adv-preserve-row").style.display = mode === "single" ? "" : "none";
+  scanEl("scan-empty-state").style.display = "block";
+  scanEl("scan-results").style.display = "none";
+  document.getElementById("scan-batch-results").style.display = "none";
+  batchState.results = [];
+  if (mode === "single") renderLiveAnnotation();
+  else updateBatchCount();
+}
+
+async function batchSubmit() {
+  const text = document.getElementById("scan-batch-text").value;
+  const { records, errors } = parseBatchInput(text);
+  const errEl = document.getElementById("scan-batch-error");
+  errEl.textContent = "";
+  if (records.length === 0) return;
+  if (records.length > 500) {
+    errEl.textContent = `${records.length} sequences exceeds the 500-sequence limit — remove ${records.length - 500} and retry.`;
+    return;
+  }
+
+  const values = scanReadFields();
+  const button = scanEl("scan-submit");
+  const orig = button.innerHTML;
+  button.disabled = true;
+  button.innerHTML = `<span class="spinner"></span>Scanning ${records.length}…`;
+
+  try {
+    const results = await batchScan(records, values.ph, values.policy);
+    batchState.results = results;
+
+    scanEl("scan-empty-state").style.display = "none";
+    scanEl("scan-results").style.display = "none";
+    document.getElementById("scan-batch-results").style.display = "block";
+    document.getElementById("scan-batch-table-section").style.display = "block";
+    document.getElementById("scan-batch-detail-back").style.display = "none";
+
+    document.getElementById("scan-batch-table-label").textContent =
+      errors.length > 0
+        ? `${results.length} sequences scanned · ${errors.length} line${errors.length !== 1 ? "s" : ""} skipped (see input)`
+        : `${results.length} sequences scanned`;
+
+    renderBatchTable(results);
+    renderBatchBestStrip(results);
+  } catch (err) {
+    showToast(err.networkError ? err.message : `${err.code || "ERROR"}: ${err.message}`);
+  } finally {
+    button.disabled = false;
+    button.innerHTML = orig;
+  }
+}
+
 
 function buildRulerRow(length) {
   const row = document.createElement("div");
@@ -193,6 +455,7 @@ function scanRenderVariant(result) {
     scanEl("scan-variant-kck-estimate").textContent = "—";
     scanEl("scan-variant-kck-estimate-nm").textContent = "—";
     scanEl("scan-variant-copy-row").style.display = "none";
+    scanEl("scan-variant-kck-send-btn").style.display = "none";
     return;
   }
 
@@ -218,6 +481,14 @@ function scanRenderVariant(result) {
   scanEl("scan-variant-kck-estimate").textContent = `${variantKckM.toExponential(2)} M`;
   scanEl("scan-variant-kck-estimate-nm").textContent = `${roundSig(variant.estimated_kck_nm, 3)} nM`;
 
+  const variantSendBtn = scanEl("scan-variant-kck-send-btn");
+  variantSendBtn.style.display = "inline-block";
+  variantSendBtn.onclick = () => {
+    window.lockrChain.pipedKck = variant.estimated_kck_nm;
+    window.lockrChain.sourceLabel = `${result.id || "scanned"} variant`;
+    showTab("calculator");
+  };
+
   scanEl("scan-variant-copy-row").style.display = "flex";
   scanEl("scan-variant-copy-sequence").textContent = variant.sequence;
 }
@@ -234,6 +505,14 @@ function scanRenderResults(result) {
   const kckM = result.estimated_kck_nm * 1e-9;
   scanEl("scan-kck-estimate").textContent = `${kckM.toExponential(2)} M`;
   scanEl("scan-kck-estimate-nm").textContent = `${roundSig(result.estimated_kck_nm, 3)} nM`;
+
+  const sendBtn = scanEl("scan-kck-send-btn");
+  sendBtn.style.display = "inline-block";
+  sendBtn.onclick = () => {
+    window.lockrChain.pipedKck = result.estimated_kck_nm;
+    window.lockrChain.sourceLabel = result.id || "scanned sequence";
+    showTab("calculator");
+  };
 
   const badge = scanEl("scan-kck-badge");
   badge.className = `badge badge-${result.predicted_kck_penalty.band}`;
@@ -295,14 +574,22 @@ function initScanner() {
   });
 
   document.getElementById("scan-reset").addEventListener("click", () => {
-    textarea.value = "";
-    windowTouched = false;
-    renderLiveAnnotation();
+    if (scanMode === "single") {
+      textarea.value = "";
+      windowTouched = false;
+      renderLiveAnnotation();
+      scanEl("scan-empty-state").style.display = "block";
+      scanEl("scan-results").style.display = "none";
+    } else {
+      document.getElementById("scan-batch-text").value = "";
+      batchState.results = [];
+      document.getElementById("scan-batch-results").style.display = "none";
+      scanEl("scan-empty-state").style.display = "block";
+      updateBatchCount();
+    }
     document.querySelectorAll("#scan-policy-segmented button").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.policy === "conservative");
     });
-    scanEl("scan-empty-state").style.display = "block";
-    scanEl("scan-results").style.display = "none";
   });
 
   document.querySelectorAll("#scan-policy-segmented button").forEach((btn) => {
@@ -312,7 +599,10 @@ function initScanner() {
     });
   });
 
-  scanEl("scan-submit").addEventListener("click", scanSubmit);
+  scanEl("scan-submit").addEventListener("click", () => {
+    if (scanMode === "single") scanSubmit();
+    else batchSubmit();
+  });
 
   scanEl("scan-variant-copy-btn").addEventListener("click", async () => {
     const sequence = scanEl("scan-variant-copy-sequence").textContent;
@@ -322,6 +612,57 @@ function initScanner() {
     } catch (err) {
       showToast("Couldn't copy — select and copy the sequence manually.");
     }
+  });
+
+  // mode toggle
+  document.querySelectorAll("#scan-mode-segmented button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#scan-mode-segmented button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      setScanMode(btn.dataset.mode);
+    });
+  });
+
+  // batch textarea live parse
+  document.getElementById("scan-batch-text").addEventListener("input", updateBatchCount);
+
+  // file upload
+  document.getElementById("scan-batch-upload-btn").addEventListener("click", () => {
+    document.getElementById("scan-batch-file").click();
+  });
+  document.getElementById("scan-batch-file").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      document.getElementById("scan-batch-text").value = ev.target.result;
+      updateBatchCount();
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  });
+
+  // drag-and-drop onto batch input area
+  const dropzone = document.getElementById("scan-batch-dropzone");
+  dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.classList.add("drag-over"); });
+  dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag-over"));
+  dropzone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropzone.classList.remove("drag-over");
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      document.getElementById("scan-batch-text").value = ev.target.result;
+      updateBatchCount();
+    };
+    reader.readAsText(file);
+  });
+
+  // batch results controls
+  document.getElementById("scan-batch-back-btn").addEventListener("click", batchShowTable);
+  document.getElementById("scan-batch-export-btn").addEventListener("click", () => {
+    if (batchState.results.length > 0) batchExportCsv(batchState.results);
   });
 
   renderLiveAnnotation();

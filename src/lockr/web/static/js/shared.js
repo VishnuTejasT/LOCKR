@@ -1,11 +1,15 @@
-// Tab routing, toasts, and the formatting helpers both tabs need.
+//This file works to share information between the scanner and calculator tabs of the frontend.
 
-const API_BASE = ""; // same origin -- lockr serve hosts API and frontend together
+const API_BASE = ""; // same origin... lockr serve hosts API and frontend together
+
+//Scanner writes info here, while Clauclator reads from it.
+window.lockrChain = { pipedKck: null, sourceLabel: null };
 
 function showTab(name) {
   document.querySelectorAll(".tab-panel").forEach((el) => el.classList.toggle("active", el.dataset.tab === name));
   document.querySelectorAll("nav.tabs button").forEach((el) => el.classList.toggle("active", el.dataset.tab === name));
   location.hash = `#${name}`;
+  document.dispatchEvent(new CustomEvent("tabchange", { detail: { tab: name } }));
 }
 
 function initTabs() {
@@ -31,8 +35,7 @@ function showToast(message) {
   toastTimer = setTimeout(() => { el.style.display = "none"; }, 4000);
 }
 
-// POST helper that turns network failure and the API's {error:{...}} envelope
-// into one consistent shape callers can branch on without re-parsing each time.
+
 async function apiPost(path, body) {
   let response;
   try {
@@ -42,7 +45,7 @@ async function apiPost(path, body) {
       body: JSON.stringify(body),
     });
   } catch (err) {
-    throw { networkError: true, message: "Can't reach the local engine — is `lockr serve` running?" };
+    throw { networkError: true, message: "Engine isn't working... Is lockr serve command running?" };
   }
   const data = await response.json();
   if (!response.ok) {

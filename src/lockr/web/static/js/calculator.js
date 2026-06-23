@@ -44,7 +44,7 @@ function calcShowFieldErrors(errors) {
   });
 }
 
-// pull > 50 has no precedent in any documented ECLIPSE run... worth a nudge,
+// pull > 50 has no significance in our documented ECLIPSE runs...
 function calcCheckPullWarning(values) {
   const warnEl = calcEl("calc-pull-warning");
   warnEl.style.display = values.pull > 50 ? "block" : "none";
@@ -169,18 +169,40 @@ async function calcSubmit() {
 
 function calcReset() {
   calcEl("calc-form").reset();
+  calcDetachPill();
   calcUpdateValidity();
   calcEl("calc-empty-state").style.display = "block";
   calcEl("calc-results").style.display = "none";
   calcEl("calc-undefined-result").style.display = "none";
 }
 
+function calcDetachPill() {
+  calcEl("calc-kck-pill").style.display = "none";
+  window.lockrChain.sourceLabel = null;
+}
+
+function calcApplyPiped() {
+  if (window.lockrChain.pipedKck === null) return;
+  calcEl("calc-kck").value = window.lockrChain.pipedKck;
+  const pill = calcEl("calc-kck-pill");
+  const label = window.lockrChain.sourceLabel || "Scanner";
+  pill.innerHTML = `from Scanner · ${label} <button type="button" aria-label="Detach">×</button>`;
+  pill.style.display = "inline-flex";
+  pill.querySelector("button").addEventListener("click", calcDetachPill);
+  calcUpdateValidity();
+}
+
 function initCalculator() {
   document.querySelectorAll('[data-tab="calculator"] [data-calc-field]').forEach((input) => {
     input.addEventListener("input", calcUpdateValidity);
   });
+  // typing in k_ck while pill is showing detaches it (editing IS detaching)
+  calcEl("calc-kck").addEventListener("input", calcDetachPill);
   calcEl("calc-submit").addEventListener("click", calcSubmit);
   calcEl("calc-reset").addEventListener("click", calcReset);
+  document.addEventListener("tabchange", (e) => {
+    if (e.detail.tab === "calculator") calcApplyPiped();
+  });
   calcUpdateValidity();
 }
 

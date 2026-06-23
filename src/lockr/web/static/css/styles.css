@@ -427,3 +427,70 @@ textarea#scan-sequence { font-size: 15px; letter-spacing: 1px; }
   color: var(--text-muted);
   min-height: 13px;
 }
+
+/* ── Batch mode ────────────────────────────────────────────────────────── */
+
+.batch-dropzone { position: relative; }
+.batch-dropzone.drag-over textarea { opacity: 0.4; pointer-events: none; }
+.batch-dropzone.drag-over::after {
+  content: "Drop file here";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--brand-050);
+  border: 2px dashed var(--brand-700);
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  color: var(--brand-700);
+  pointer-events: none;
+}
+
+.batch-parse-errors {
+  margin-top: 6px;
+  padding: 8px 12px;
+  background: var(--warning-100);
+  border: 1px solid var(--warning-700);
+  border-radius: var(--radius-md);
+}
+
+.batch-best-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: var(--surface-alt);
+  border: 2px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.batch-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.batch-table th {
+  text-align: left;
+  padding: 10px 14px;
+  background: var(--surface-alt);
+  border-bottom: 2px solid var(--border-strong);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+.batch-table td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.batch-table tbody tr { cursor: pointer; }
+.batch-table tbody tr:hover td { background: var(--brand-050); }
+.batch-table tbody tr:last-child td { border-bottom: none; }
