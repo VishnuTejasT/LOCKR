@@ -6,7 +6,7 @@ This software is a CPU-only thermodynamic engine for LOCKR biosensors. It essent
 # Install Instructions
 
 ```
-git clone <your gitlab repo url>
+git clone https://github.com/VishnuTejasT/LOCKR.git
 cd LOCKR
 conda create -n igem python=3.10
 conda activate igem
@@ -55,6 +55,7 @@ Then, you have two options to actually run the program.
    ```
 
    Here are additional commands for more help:
+
    ```
    lockr --help
    lockr scan --help
