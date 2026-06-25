@@ -16,7 +16,6 @@ app.include_router(foldchange.router)
 app.include_router(sweep.router)
 app.include_router(assembly.router)
 
-# Mounted at /static (not /) so it can't shadow the JSON routes above.
 app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
 
 

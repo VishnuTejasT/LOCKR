@@ -8,7 +8,6 @@ from fastapi.responses import JSONResponse
 
 
 class ApiError(Exception):
-    # Routes raise this directly for domain validation (bad sequence, K_open<=0, ...).
     def __init__(self, code: str, message: str, field: str | None = None, status_code: int = 400):
         self.code = code
         self.field = field
@@ -28,7 +27,6 @@ def install_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def _handle_validation_error(request: Request, exc: RequestValidationError):
-        # Pydantic gives a list of errors; surface the first one, field as dotted path.
         first = exc.errors()[0]
         field = ".".join(str(p) for p in first["loc"] if p != "body")
         return JSONResponse(status_code=400,
@@ -36,7 +34,5 @@ def install_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(Exception)
     async def _handle_unexpected(request: Request, exc: Exception):
-        # Real engine bugs shouldn't get swallowed into a generic message -- include
-        # the exception text so a dev-mode caller can actually debug it.
         return JSONResponse(status_code=500,
                             content=_envelope("INTERNAL_ERROR", f"{type(exc).__name__}: {exc}"))

@@ -21,15 +21,12 @@ from ..schemas.foldchange import FoldChangeRequest, FoldChangeResponse
 
 router = APIRouter()
 
-# Spec 8's exact copy -- extreme but technically-positive inputs (e.g. K_CK
-# near float underflow) can drive the engine to a ZeroDivisionError or an
-# inf/nan ratio rather than a real answer; surface that as a normal 400
-# instead of a 500 or a NaN literal that wouldn't even parse as JSON.
+
 _UNDEFINED_RESULT_MESSAGE = "Parameters produce an undefined result — check K_open and K_CK."
 
 _NM_TO_M = 1e-9
 
-# Verbatim from spec 9.3 -- canned per-regime copy, not engine output.
+
 _RECOMMENDATIONS = {
     "key-limited": [
         "Increase lucKey to raise the dominance ratio.",

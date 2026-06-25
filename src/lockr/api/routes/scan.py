@@ -23,27 +23,19 @@ router = APIRouter()
 
 def _validate_window_and_preserve(window, preserve_positions: list[int], length: int,
                                   window_field: str, preserve_field: str) -> None:
-    # Unlike Window.clamped (used to derive the *effective* window for scoring),
-    # this is the spec 8 "out of range -> reject" gate -- callers must send a
-    # window/preserve_positions that's actually valid for the sequence they sent,
-    # not rely on us silently fixing it up for them.
     if not (1 <= window.start <= length):
-        raise ApiError("VALIDATION_ERROR", f"window start must be within 1-{length}", field=f"{window_field}.start")
+        raise ApiError("VALIDATION_ERROR", f"Your window start must be within 1-{length}", field=f"{window_field}.start")
     if not (1 <= window.end <= length):
-        raise ApiError("VALIDATION_ERROR", f"window end must be within 1-{length}", field=f"{window_field}.end")
+        raise ApiError("VALIDATION_ERROR", f"Your window end must be within 1-{length}", field=f"{window_field}.end")
     for pos in preserve_positions:
         if not (1 <= pos <= length):
-            raise ApiError("VALIDATION_ERROR", f"preserve_positions entry {pos} must be within 1-{length}",
+            raise ApiError("VALIDATION_ERROR", f"Your preserve_positions entry {pos} must be within 1-{length}",
                           field=preserve_field)
 
-# Verbatim from spec 8 -- the one server-side warning condition the spec
-# actually documents (the live frontend check is just an early heads-up on
-# the typed-in length; this is the authoritative one tied to the sequence
-# that was actually scanned).
+
 _LONG_SEQUENCE_THRESHOLD = 200
 _LONG_SEQUENCE_WARNING = "long sequence — liability model tuned for peptide-scale binders"
 
-# Verbatim from spec 9.2 -- UI copy, not engine output.
 _KCK_NOTES = {
     "Low": "There are not any acidic residues in the sensitive region, so K_CK "
            "affinity should be preserved.",
