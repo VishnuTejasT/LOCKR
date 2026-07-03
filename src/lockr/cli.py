@@ -140,13 +140,14 @@ def _cmd_fc(args) -> None:
 
 
 def _print_fc_result(r) -> None:
-    print(f"Fold-change:     {r.fold_change:.2f}x")
-    print(f"Dominance ratio: {r.dominance_ratio:.2f}")
-    print(f"Fraction of DR:  {r.fraction_of_dominance_ratio:.4f}")
-    print(f"Regime:          {r.regime.replace('_', '-')}")
+    print(f"Fold-change:       {r.fold_change:.2f}x  [{r.quality}]")
+    print(f"  {r.interpretation}")
+    print(f"Best case (max):   {r.max_fold_change:.2f}x  (saturating target, this pull)")
+    print(f"Key vs cage ratio: {r.dominance_ratio:.2f}  (lucKey / K_CK — how hard the key competes)")
+    print(f"Limited by:        {r.regime.replace('_', '-')}")
     print()
-    print(f"Verdict: {r.verdict}")
-    print("Recommendations:")
+    print(f"What this means: {r.verdict}")
+    print("How to improve:")
     for rec in r.recommendations:
         print(f"  - {rec}")
     if r.warnings:

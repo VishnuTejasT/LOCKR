@@ -84,4 +84,20 @@ function formatFoldChange(x) {
   return `${roundSig(x, 3)}×`;
 }
 
+// Help tooltips work on hover/focus via CSS; this adds tap-to-toggle on touch
+// devices and closes any open bubble when you tap elsewhere.
+function initHelpTips() {
+  document.addEventListener("click", (e) => {
+    const tip = e.target.closest(".help-tip");
+    document.querySelectorAll(".help-tip.open").forEach((t) => {
+      if (t !== tip) t.classList.remove("open");
+    });
+    if (tip) {
+      e.preventDefault();
+      tip.classList.toggle("open");
+    }
+  });
+}
+
 document.addEventListener("DOMContentLoaded", initTabs);
+document.addEventListener("DOMContentLoaded", initHelpTips);

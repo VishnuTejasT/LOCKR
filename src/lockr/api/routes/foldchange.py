@@ -49,25 +49,55 @@ _LIMITING_FACTOR = {
 }
 
 
+# Plain-language fold-change quality bands (dimensionless signal ratio).
+# These are rules of thumb for iGEM/biosensor work, not hard cutoffs: a
+# fold-change is the "with target" signal divided by the "no target" signal,
+# so 1x means no response and bigger is easier to read out on a plate reader.
+def _quality_and_interpretation(fc: float, max_fc: float, at_saturation: bool) -> tuple[str, str]:
+    if fc >= 50:
+        quality = "excellent"
+        desc = "a large, easy-to-read signal jump"
+    elif fc >= 10:
+        quality = "good"
+        desc = "a clear, usable signal jump"
+    elif fc >= 3:
+        quality = "modest"
+        desc = "a detectable but small signal jump"
+    else:
+        quality = "weak"
+        desc = "barely above background — likely hard to detect on a plate reader"
+
+    when = "at saturating target" if at_saturation else "at the target level you entered"
+    sentence = (f"About {fc:.1f}x brighter luminescence when the target is present versus "
+                f"absent {when} — {desc}.")
+    if not at_saturation and max_fc > fc * 1.05:
+        sentence += f" With fully saturating target this design could reach about {max_fc:.1f}x."
+    return quality, sentence
+
+
 @router.post("/foldchange", response_model=FoldChangeResponse)
 def foldchange(request: FoldChangeRequest) -> FoldChangeResponse:
     params = SensorParams(K_open=request.k_open, K_CK=request.k_ck * _NM_TO_M,
                           lucKey=request.luckey * _NM_TO_M)
 
     try:
-        if request.target_conc is not None:
+        at_saturation = request.target_conc is None
+        max_fc = thermo.max_fold_change(Kd=1.0, pull=request.pull, params=params)
+        if not at_saturation:
             Kd = request.k_target * _NM_TO_M
             target_conc = request.target_conc * _NM_TO_M
             fc = thermo.fold_change(target_conc, Kd, request.pull, params)
         else:
-            fc = thermo.max_fold_change(Kd=1.0, pull=request.pull, params=params)
+            fc = max_fc
         regime_result = thermo.diagnose_regime(params, pull=request.pull)
         fraction_of_dominance_ratio = fc / params.luckey_ratio
     except (ZeroDivisionError, OverflowError, ValueError):
         raise ApiError("UNDEFINED_RESULT", _UNDEFINED_RESULT_MESSAGE)
 
-    if not all(math.isfinite(v) for v in (fc, params.luckey_ratio, fraction_of_dominance_ratio)):
+    if not all(math.isfinite(v) for v in (fc, max_fc, params.luckey_ratio, fraction_of_dominance_ratio)):
         raise ApiError("UNDEFINED_RESULT", _UNDEFINED_RESULT_MESSAGE)
+
+    quality, interpretation = _quality_and_interpretation(fc, max_fc, at_saturation)
 
     warnings = []
     if request.pull > 50:
@@ -76,6 +106,9 @@ def foldchange(request: FoldChangeRequest) -> FoldChangeResponse:
 
     return FoldChangeResponse(
         fold_change=fc,
+        max_fold_change=max_fc,
+        quality=quality,
+        interpretation=interpretation,
         dominance_ratio=params.luckey_ratio,
         fraction_of_dominance_ratio=fraction_of_dominance_ratio,
         regime=regime_result.regime.replace("-", "_"),

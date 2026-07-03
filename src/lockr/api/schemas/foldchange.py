@@ -43,6 +43,9 @@ class FoldChangeRequest(BaseModel):
 
 class FoldChangeResponse(BaseModel):
     fold_change: float
+    max_fold_change: float
+    quality: str
+    interpretation: str
     dominance_ratio: float
     fraction_of_dominance_ratio: float
     regime: str

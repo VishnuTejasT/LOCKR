@@ -257,7 +257,6 @@ details.advanced .card { margin-top: 8px; background: var(--surface-alt); box-sh
 }
 
 .hero-fc { font-family: var(--font-display); font-size: 40px; line-height: 48px; font-weight: 600; }
-.verdict-subline { color: var(--text-soft); font-size: 13px; margin-top: 4px; }
 .verdict-banner {
   display: flex;
   gap: 12px;
@@ -295,6 +294,136 @@ ul.recommendations li { margin-bottom: 6px; }
 
 .invalid { border-color: var(--danger-700) !important; }
 .field-error { color: var(--danger-700); font-size: 13px; margin-top: 4px; }
+
+/* Inline help: a small "?" chip next to a label that reveals an explanation. */
+.help-tip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--brand-700);
+  background: var(--brand-100);
+  border: 1.5px solid var(--brand-700);
+  border-radius: 50%;
+  cursor: help;
+  vertical-align: middle;
+  user-select: none;
+}
+.help-tip .help-tip-body {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 260px;
+  max-width: 70vw;
+  padding: 10px 12px;
+  background: var(--text);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 400;
+  line-height: 17px;
+  text-align: left;
+  border-radius: var(--radius-md);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .22);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .12s ease;
+  z-index: 60;
+  pointer-events: none;
+}
+.help-tip .help-tip-body::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--text);
+}
+.help-tip:hover .help-tip-body,
+.help-tip:focus .help-tip-body,
+.help-tip.open .help-tip-body { opacity: 1; visibility: visible; }
+.help-tip .help-tip-body b { color: #ffd9a0; font-weight: 600; }
+
+/* Preset / example loader row */
+.preset-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  padding: 12px;
+  background: var(--brand-050);
+  border: 1px solid var(--brand-100);
+  border-radius: var(--radius-md);
+}
+.preset-row label { margin-bottom: 0; font-weight: 500; color: var(--text-soft); }
+.preset-row select {
+  flex: 1;
+  min-width: 160px;
+  height: 40px;
+  padding: 0 10px;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+}
+
+/* Glossary panel */
+.glossary { margin-bottom: 20px; }
+.glossary > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--brand-700);
+  padding: 10px 12px;
+  background: var(--surface-alt);
+  border-radius: var(--radius-md);
+  list-style: none;
+}
+.glossary > summary::-webkit-details-marker { display: none; }
+.glossary dl { margin: 12px 4px 4px; }
+.glossary dt { font-weight: 600; color: var(--text); margin-top: 10px; }
+.glossary dt .gloss-unit { font-weight: 400; color: var(--text-muted); font-size: 12px; }
+.glossary dd { margin: 2px 0 0; color: var(--text-soft); font-size: 13.5px; line-height: 19px; }
+
+/* Plain-language result readout on the fold-change card */
+.result-readout {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+.result-quality {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+}
+.result-quality.excellent, .result-quality.good { background: var(--success-100); color: var(--success-700); }
+.result-quality.modest { background: var(--warning-100); color: var(--warning-700); }
+.result-quality.weak { background: var(--danger-100); color: var(--danger-700); }
+.result-interpretation { color: var(--text); font-size: 15px; line-height: 21px; margin-top: 10px; }
+.result-metrics {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.result-metric { font-size: 13px; }
+.result-metric .rm-label { color: var(--text-muted); display: block; }
+.result-metric .rm-value { color: var(--text); font-weight: 600; font-family: var(--font-mono, monospace); }
 
 .spinner {
   display: inline-block;

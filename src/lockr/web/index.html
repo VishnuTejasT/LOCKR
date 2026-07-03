@@ -223,42 +223,72 @@
   <section class="tab-panel" data-tab="calculator">
     <div class="screen-header">
       <h1>Fold-Change Calculator</h1>
-      <p>Predicts your Integrated-LOCKR Protein's fold-change capabilities and ranges, while identifying its limits.</p>
+      <p>This calculator will predict how much brighter the LOCKR system will get when its target is present, while also providing insights on how to improve it.</p>
     </div>
 
     <div class="two-col">
       <div>
+        <div class="preset-row">
+          <label for="calc-preset">Start from an example:</label>
+          <select id="calc-preset">
+            <option value="">Pick a Starting Point </option>
+            <option value="eclipse">ECLIPSE's default (tight cage, 500 nM key)</option>
+            <option value="tight-key">Tight key / weak cage</option>
+            <option value="leaky">Leaky cage (high background)</option>
+            <option value="blank">Clear all fields</option>
+          </select>
+        </div>
+
+        <details class="glossary">
+          <summary>Read this first if you're new to these terms!!!</summary>
+          <dl>
+            <dt>Fold-change</dt>
+            <dd>The whole point of the sensor: signal <em>with</em> target ÷ signal <em>without</em> target. 1× means no response; 10–50×+ is a strong, easy-to-read sensor.</dd>
+            <dt>K_CK <span class="gloss-unit">— nM, cage–key affinity</span></dt>
+            <dd>This is how tightly the key attaches to the cage. <b>The lower the value, the tighter the binding, and the brighter the signal</b> This can be obtained fromt he scanner tab in this tool!</dd>
+            <dt>K_open <span class="gloss-unit">— Cage-Looseness</span></dt>
+            <dd>This is how often the cage's latch opens on its own, when the stimuli is not present. ~0.001 means it's shut 99.9% of the time (low background noise).</dd>
+            <dt>Pull strength <span class="gloss-unit">— no units</span></dt>
+            <dd>This is how much the target binding will open the cage. Pull = 10 means target makes the cage ~10× more likely to open, while Pull = 1 means there won't be <b>any</b> change to the cage's ability to open. Fit this from a wet-lab titration.</dd>
+            <dt>lucKey <span class="gloss-unit">— nM, the key's concentration</span></dt>
+            <dd>This is a choice for the experimenter. The more key there is, the more signal you'll get, but there is a limiting factor at play.</dd>
+            <dt>What limits it?</dt>
+            <dd>This calculator will tell you whether the <em>key side</em> (lucKey / K_CK) or the <em>cage side</em> (K_open) is interfering with fold-change abilities, so you know which variable to modify.</dd>
+          </dl>
+        </details>
+
         <div class="card">
           <form id="calc-form">
             <div class="field-row">
-              <label for="calc-kck">K_CK <span class="unit-suffix">nM</span> <span id="calc-kck-pill" class="pill-chain" style="display:none;"></span></label>
-              <input id="calc-kck" data-calc-field="k_ck" type="number" step="any" value="10" min="0" placeholder="Identified from Scanner">
+              <label for="calc-kck">Cage–key affinity, K_CK <span class="unit-suffix">nM</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">How tightly the reporter key grabs the open cage. <b>Lower = tighter = brighter signal.</b> Typical 1–100 nM. Get it from the <b>Scanner</b> tab or a binding measurement.</span></span> <span id="calc-kck-pill" class="pill-chain" style="display:none;"></span></label>
+              <input id="calc-kck" data-calc-field="k_ck" type="number" step="any" value="10" min="0" placeholder="e.g. 10 — or send from Scanner">
               <div class="field-error" data-calc-error="k_ck"></div>
             </div>
             <div class="field-row">
-              <label for="calc-kopen">K_open <span class="unit-suffix">—</span></label>
-              <input id="calc-kopen" data-calc-field="k_open" type="number" step="any" value="0.001" min="0" placeholder="from literature or BLI measurement">
+              <label for="calc-kopen">Cage looseness, K_open <span class="unit-suffix">—</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">Chance the cage pops open on its own with no target. <b>~0.001 = shut 99.9% of the time</b> (low background). Lower = tighter cage. From literature or a BLI measurement.</span></span></label>
+              <input id="calc-kopen" data-calc-field="k_open" type="number" step="any" value="0.001" min="0" placeholder="e.g. 0.001">
               <div class="field-error" data-calc-error="k_open"></div>
             </div>
             <div class="field-row">
-              <label for="calc-pull">Pull strength <span class="unit-suffix">—</span></label>
-              <input id="calc-pull" data-calc-field="pull" type="number" step="any" value="10" min="0" placeholder="fit from your luminescence titration">
+              <label for="calc-pull">Pull strength <span class="unit-suffix">—</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">How much target binding pries the cage open. <b>Pull = 10 → target makes the cage ~10× more likely to open.</b> Can't be computed — fit it from a wet-lab luminescence titration. Typical 10–30.</span></span></label>
+              <input id="calc-pull" data-calc-field="pull" type="number" step="any" value="10" min="0" placeholder="e.g. 10">
               <div class="field-error" data-calc-error="pull"></div>
-              <div class="help-text">This is the one parameter that can't be computed, because it is based on wet-lab luminescence data, so we will assume it. 10-30 is the typical range, and higher = stronger allosteric coupling.</div>
-              <div id="calc-pull-warning" class="help-text" style="display:none; color: var(--warning-700);">pull strength above 50 has no documented importance, so check your units</div>
-              <div class="help-text font-mono" id="calc-kopen-eff-derived">K_open (effective, target-bound) = —</div>
+              <div class="help-text">The one value you can't predict — fit it from wet-lab luminescence data. 10–30 is typical; higher means the target opens the cage more strongly.</div>
+              <div id="calc-pull-warning" class="help-text" style="display:none; color: var(--warning-700);">A pull above 50 has no documented precedent — double-check your units.</div>
+              <div class="help-text font-mono" id="calc-kopen-eff-derived">With target bound, the cage opens ~— × more readily</div>
             </div>
             <div class="field-row">
-              <label for="calc-luckey">lucKey<span class="unit-suffix">nM</span></label>
-              <input id="calc-luckey" data-calc-field="luckey" type="number" step="any" value="500" min="0" placeholder="Your assay design choice">
+              <label for="calc-luckey">Reporter key dose, lucKey <span class="unit-suffix">nM</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">How much reporter key you add to the assay — <b>your choice as the experimenter.</b> More key drives more signal, up to a point. Typical 100–1000 nM.</span></span></label>
+              <input id="calc-luckey" data-calc-field="luckey" type="number" step="any" value="500" min="0" placeholder="e.g. 500">
               <div class="field-error" data-calc-error="luckey"></div>
             </div>
 
             <details class="advanced">
-              <summary>Advanced/Target-binding</summary>
+              <summary>Advanced: target concentration (optional)</summary>
               <div class="card">
+                <div class="help-text" style="margin-bottom:12px;">Leave this whole section blank to assume the target is fully present (best-case response). Fill it in to predict the signal at a specific, real target concentration.</div>
                 <div class="field-row" style="margin-bottom:12px;">
-                  <label style="margin-bottom:6px;">Enter K_target as</label>
+                  <label style="margin-bottom:6px;">Enter binder–target affinity as<span class="help-tip" tabindex="0">?<span class="help-tip-body">How tightly your binder grabs the target you're detecting. Enter it as a <b>Kd</b> (nM) or as a docking <b>ΔG</b> (kcal/mol) if that's what you have.</span></span></label>
                   <div class="segmented" id="calc-ktarget-mode-seg">
                     <button type="button" data-kmode="kd" class="active">Kd (nM)</button>
                     <button type="button" data-kmode="dg">dG (kcal/mol)</button>
@@ -267,8 +297,8 @@
 
                 <div id="calc-ktarget-kd-panel">
                   <div class="field-row">
-                    <label for="calc-ktarget">K_target <span class="unit-suffix">nM</span></label>
-                    <input id="calc-ktarget" data-calc-field="k_target" type="number" step="any" placeholder="from docking (e.g. ADCP)">
+                    <label for="calc-ktarget">Binder–target affinity, K_target <span class="unit-suffix">nM</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">Lower = your binder holds the target more tightly. From docking (e.g. ADCP) or a binding measurement.</span></span></label>
+                    <input id="calc-ktarget" data-calc-field="k_target" type="number" step="any" placeholder="e.g. 50">
                     <div class="field-error" data-calc-error="k_target"></div>
                   </div>
                 </div>
@@ -282,7 +312,7 @@
                   <details id="calc-dg-anchor" style="margin-bottom:12px;">
                     <summary style="cursor:pointer; color:var(--brand-700); font-weight:500; font-size:14px;">Anchor to reference Kd (recommended)</summary>
                     <div style="margin-top:8px; padding:12px 16px; background:var(--canvas); border:1px solid var(--border-strong); border-radius:var(--radius-md);">
-                      <div class="help-text" style="margin-bottom:12px;">If you have a known Kd for a related construct (e.g. from MD or wet-lab), anchor your conversion for a real absolute Kd. Without an anchor, this uses kT alone and may be off by orders of magnitude — treat it as directional, not exact.</div>
+                      <div class="help-text" style="margin-bottom:12px;">If you have a known Kd for a related construct (e.g. from MD or wet-lab), anchor your conversion for a real absolute Kd. Without an anchor, this uses kT alone and may be off by orders of magnitude</div>
                       <div class="field-row">
                         <label for="calc-dg-ref-dg">Reference dG <span class="unit-suffix">kcal/mol</span></label>
                         <input id="calc-dg-ref-dg" type="number" step="any" placeholder="e.g. -12.0">
@@ -300,10 +330,10 @@
                 </div>
 
                 <div class="field-row" style="margin-top:12px;">
-                  <label for="calc-targetconc">target<span class="unit-suffix">nM</span></label>
-                  <input id="calc-targetconc" data-calc-field="target_conc" type="number" step="any" placeholder="Leave blank if saturated">
+                  <label for="calc-targetconc">Target present in sample <span class="unit-suffix">nM</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">How much target is actually in the sample you're testing. Combined with the affinity above, this sets how "on" the sensor is.</span></span></label>
+                  <input id="calc-targetconc" data-calc-field="target_conc" type="number" step="any" placeholder="e.g. 100">
                   <div class="field-error" data-calc-error="target_conc"></div>
-                  <div class="help-text">Leave both blank to assume the target is fully saturating.</div>
+                  <div class="help-text">Leave both this and the affinity blank to assume the target is fully saturating (best case).</div>
                 </div>
               </div>
             </details>
@@ -318,17 +348,30 @@
 
       <div>
         <div id="calc-empty-state" class="empty-state">
-          Set your parameters and calculate to see predicted fold-change, the lucKey/K_CK dominance ratio, and what's limiting your sensor.
+          Fill in the four values on the left (or load an example) and hit Calculate. You'll get a predicted fold-change value and insights into how to improve it.
         </div>
 
         <div id="calc-undefined-result" class="card" style="display:none;">
-          Parameters produce an undefined result — check K_open and K_CK.
+          These numbers don't produce a valid result, so double-check your K_open and K_CK values.
         </div>
 
         <div id="calc-results" style="display:none;">
           <div class="card">
-            <div class="hero-fc" id="calc-hero-fc">—</div>
-            <div class="verdict-subline" id="calc-subline"></div>
+            <div class="result-readout">
+              <div class="hero-fc" id="calc-hero-fc">—</div>
+              <span class="result-quality" id="calc-quality"></span>
+            </div>
+            <div class="result-interpretation" id="calc-interpretation"></div>
+            <div class="result-metrics">
+              <div class="result-metric">
+                <span class="rm-label">Best case (saturating target)<span class="help-tip" tabindex="0">?<span class="help-tip-body">This is the maximum fold-change that can be achieved if the target is fully present.</span></span></span>
+                <span class="rm-value" id="calc-metric-max">—</span>
+              </div>
+              <div class="result-metric">
+                <span class="rm-label">Key vs cage ratio<span class="help-tip" tabindex="0">?<span class="help-tip-body">This is how hard the key competes to hold the cage open when the latch unfolds initially. </span></span></span>
+                <span class="rm-value" id="calc-metric-ratio">—</span>
+              </div>
+            </div>
             <div id="calc-regime-banner" class="verdict-banner">
               <div>
                 <div class="verdict-title" id="calc-regime-title"></div>
@@ -339,19 +382,19 @@
           </div>
 
           <div class="card">
-            <h2 class="font-display" style="font-size:22px;">Fold-change vs lucKey</h2>
+            <h2 class="font-display" style="font-size:22px;">If you change the key dose (lucKey)</h2>
             <svg class="plot-svg" id="calc-plot-luckey"></svg>
-            <div class="plot-caption">Dashed line: lucKey/K_CK dominance ratio (a diagnostic threshold, not an achievable fold-change target).</div>
+            <div class="plot-caption">Solid = predicted fold-change when more of the key is added.  Dashed = the key-vs-cage ratio</div>
           </div>
 
           <div class="card">
-            <h2 class="font-display" style="font-size:22px;">Fold-change vs K_open</h2>
+            <h2 class="font-display" style="font-size:22px;">If you change the cage looseness (K_open)</h2>
             <svg class="plot-svg" id="calc-plot-kopen"></svg>
-            <div class="plot-caption">The line is flat in the key-limited area. Flatness indicates that latch mutations won't help.</div>
+            <div class="plot-caption">If this line is flat near the dot, tuning the cage again won't change anything, and manipulating lucKey concentrations is the move.</div>
           </div>
 
           <div class="card">
-            <h2 class="font-display" style="font-size:22px;">Recommendations</h2>
+            <h2 class="font-display" style="font-size:22px;">What to try next</h2>
             <ul class="recommendations" id="calc-recommendations"></ul>
           </div>
         </div>
@@ -503,7 +546,7 @@
 </main>
 
 <footer class="app-footer">
-  CC-BY 4.0 · <a href="https://gitlab.igem.org" target="_blank" rel="noopener">GitLab repo</a> · v0.1.0
+  CC-BY 4.0 · <a href="https://gitlab.igem.org" target="_blank" rel="noopener">GitLab repo</a> · v0.1.5
 </footer>
 
 <script src="static/js/shared.js"></script>

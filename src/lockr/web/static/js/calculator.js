@@ -134,10 +134,10 @@ function calcCheckPullWarning(values) {
 
 function calcUpdateDerivedKopenEff(values) {
   const el = calcEl("calc-kopen-eff-derived");
-  if (values.k_open > 0 && values.pull >= 0) {
-    el.textContent = `K_open (effective, target-bound) = ${roundSig(values.k_open * (1 + values.pull), 4)}`;
+  if (values.pull >= 0 && isFinite(values.pull)) {
+    el.textContent = `With target bound, the cage opens ~${roundSig(1 + values.pull, 3)}× more readily`;
   } else {
-    el.textContent = "K_open (effective, target-bound) = —";
+    el.textContent = "With target bound, the cage opens ~—× more readily";
   }
 }
 
@@ -157,9 +157,9 @@ function regimeToCssClass(regime) {
 }
 
 const REGIME_TITLES = {
-  key_limited: "Key-limited regime.",
-  K_open_limited: "K_open-limited regime.",
-  mixed: "Mixed regime.",
+  key_limited: "The key side is your limit.",
+  K_open_limited: "The cage is your limit.",
+  mixed: "Both sides are limiting.",
 };
 
 function calcRenderVerdict(result) {
@@ -167,9 +167,14 @@ function calcRenderVerdict(result) {
   calcEl("calc-results").style.display = "block";
 
   calcEl("calc-hero-fc").textContent = formatFoldChange(result.fold_change);
-  calcEl("calc-subline").textContent =
-    `lucKey/K_CK dominance ratio = ${roundSig(result.dominance_ratio, 3)} · ` +
-    `${roundSig(result.fraction_of_dominance_ratio * 100, 3)}% of dominance ratio`;
+
+  const qualityEl = calcEl("calc-quality");
+  qualityEl.textContent = result.quality;
+  qualityEl.className = `result-quality ${result.quality}`;
+
+  calcEl("calc-interpretation").textContent = result.interpretation;
+  calcEl("calc-metric-max").textContent = formatFoldChange(result.max_fold_change);
+  calcEl("calc-metric-ratio").textContent = roundSig(result.dominance_ratio, 3);
 
   const banner = calcEl("calc-regime-banner");
   banner.className = `verdict-banner ${regimeToCssClass(result.regime)}`;
@@ -201,7 +206,12 @@ function autoSweepRange(value) {
 async function calcRunSweeps(values) {
   const base_params = { k_ck: values.k_ck, k_open: values.k_open, pull: values.pull, luckey: values.luckey };
 
-  const luckeySweep = await apiPost("/sweep", { base_params, sweep: { param: "luckey", ...autoSweepRange(values.luckey) } });
+  // Both sweeps are independent — fire them together instead of one-after-another.
+  const [luckeySweep, kopenSweep] = await Promise.all([
+    apiPost("/sweep", { base_params, sweep: { param: "luckey", ...autoSweepRange(values.luckey) } }),
+    apiPost("/sweep", { base_params, sweep: { param: "k_open", ...autoSweepRange(values.k_open) } }),
+  ]);
+
   drawLogXPlot(calcEl("calc-plot-luckey"), {
     xIsConcentration: true,
     lines: [
@@ -211,7 +221,6 @@ async function calcRunSweeps(values) {
     marker: { x: luckeySweep.operating_point.x, y: luckeySweep.operating_point.fold_change, label: formatConcNm(luckeySweep.operating_point.x) },
   });
 
-  const kopenSweep = await apiPost("/sweep", { base_params, sweep: { param: "k_open", ...autoSweepRange(values.k_open) } });
   drawLogXPlot(calcEl("calc-plot-kopen"), {
     xIsConcentration: false,
     lines: [{ points: kopenSweep.points.map((p) => ({ x: p.x, y: p.fold_change })), color: "var(--plot-line)" }],
@@ -281,10 +290,41 @@ function calcApplyPiped() {
   calcUpdateValidity();
 }
 
+// Starting points so researchers don't face four blank fields. Values are in
+// the same units as the form (K_CK/lucKey in nM, K_open dimensionless).
+const CALC_PRESETS = {
+  eclipse:    { k_ck: 10,  k_open: 0.001, pull: 10, luckey: 500 },
+  "tight-key": { k_ck: 1,   k_open: 0.01,  pull: 15, luckey: 1000 },
+  leaky:      { k_ck: 10,  k_open: 0.1,   pull: 10, luckey: 500 },
+  blank:      { k_ck: "",  k_open: "",    pull: "", luckey: "" },
+};
+
+function calcApplyPreset(key) {
+  const preset = CALC_PRESETS[key];
+  if (!preset) return;
+  calcDetachPill();
+  calcEl("calc-kck").value = preset.k_ck;
+  calcEl("calc-kopen").value = preset.k_open;
+  calcEl("calc-pull").value = preset.pull;
+  calcEl("calc-luckey").value = preset.luckey;
+  // Presets describe the sensor, not a specific sample — clear the target section.
+  calcEl("calc-ktarget").value = "";
+  calcEl("calc-targetconc").value = "";
+  calcUpdateValidity();
+}
+
 function initCalculator() {
   document.querySelectorAll('[data-tab="calculator"] [data-calc-field]').forEach((input) => {
     input.addEventListener("input", calcUpdateValidity);
   });
+
+  const presetSelect = calcEl("calc-preset");
+  if (presetSelect) {
+    presetSelect.addEventListener("change", () => {
+      calcApplyPreset(presetSelect.value);
+      presetSelect.value = "";
+    });
+  }
   // typing in k_ck while pill is showing detaches it (editing IS detaching)
   calcEl("calc-kck").addEventListener("input", calcDetachPill);
 
