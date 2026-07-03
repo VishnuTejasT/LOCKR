@@ -192,8 +192,10 @@ header.app-header .wordmark {
   color: var(--brand-700);
   text-decoration: none;
 }
-.header-grid { display: flex; align-items: center; justify-content: space-between; width: 100%; }
-nav.tabs { display: flex; gap: 24px; }
+.header-grid { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; width: 100%; }
+.header-grid .wordmark { justify-self: start; }
+.header-grid > a:last-child { justify-self: end; }
+nav.tabs { display: flex; gap: 24px; justify-self: center; }
 nav.tabs button {
   background: none;
   border: none;

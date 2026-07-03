@@ -1,21 +1,7 @@
 # LOCKR Thermodynamics Design Tool
 
-A CPU-only thermodynamic toolkit for designing and troubleshooting LOCKR
-biosensors. It has three parts that share one physics engine:
 
-1. **Scanner** — paste a binder sequence; it flags the charged residues that
-   weaken cage–key binding, proposes a cleaned-up variant, and reports an
-   estimated **K_CK** (cage–key affinity).
-2. **Calculator** — take that K_CK (or your own numbers) and predict the
-   sensor's **fold-change**: how much brighter it gets when the target appears.
-   It tells you, in plain English, whether that number is good and what single
-   change is most likely to improve it.
-3. **Assembly Check** — verify that a full LOCKR sequence is put together
-   correctly (binder, spacer, protected region, and latch all in the right
-   place).
-
-Both the Scanner and Calculator use the same engine, so a K_CK from the Scanner
-drops straight into the Calculator.
+This software is a CPU-only thermodynamic engine for LOCKR biosensors. It essentially works by scanning a binding region in the intended latch, and identifies liabilities and problems that can restrict cage-key thermodynamic interactioons. It provides a fix, and outputs a final K_CK (Cage-Key) score. Then, the user can use the K_CK score from the scanner in the Calculator section to calculate fold-change and other variables to determine whether their LOCKR design is a good fit. Both sections utlize the same physics, so they share the same thermodynamic engine.
 
 
 ## Install
@@ -70,7 +56,7 @@ lockr fc --k-ck 10 --k-open 0.001 --pull 10 --luckey 500 --k-target 50 --target 
 lockr fc --k-ck 10 --k-open 0.001 --pull 10 --luckey 500 --json
 ```
 
-Leave `--k-target`/`--target` off to assume the target is fully saturating. All values are in nM except from `--k-open` and `--pull`.
+Leave `--k-target`/`--target` off to assume the target is fully saturating. All values are in nM except from `--k-open` and `--pull`, which are dimensionless.
 
 ### More help
 

@@ -10,13 +10,12 @@
 
 <header class="app-header">
   <div class="header-grid">
-    <a class="wordmark" href="#">ECLIPSE</a>
+    <a class="wordmark" href="#">LATTE - LOCKR Affinity and Thermodynamics Tuning Engine</a>
     <nav class="tabs">
       <button data-tab="scanner">Scanner</button>
       <button data-tab="calculator">Calculator</button>
       <button data-tab="assembly">Assembly Check</button>
     </nav>
-    <a href="https://gitlab.igem.org" target="_blank" rel="noopener">Docs ↗</a>
   </div>
 </header>
 
@@ -273,7 +272,7 @@
               <label for="calc-pull">Pull strength <span class="unit-suffix">—</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">How much target binding pries the cage open. <b>Pull = 10 → target makes the cage ~10× more likely to open.</b> Can't be computed — fit it from a wet-lab luminescence titration. Typical 10–30.</span></span></label>
               <input id="calc-pull" data-calc-field="pull" type="number" step="any" value="10" min="0" placeholder="e.g. 10">
               <div class="field-error" data-calc-error="pull"></div>
-              <div class="help-text">The one value you can't predict — fit it from wet-lab luminescence data. 10–30 is typical; higher means the target opens the cage more strongly.</div>
+              <div class="help-text">This is the one value you can't predict, so you need to fit it from wet-lab luminescence data.</div>
               <div id="calc-pull-warning" class="help-text" style="display:none; color: var(--warning-700);">A pull above 50 has no documented precedent — double-check your units.</div>
               <div class="help-text font-mono" id="calc-kopen-eff-derived">With target bound, the cage opens ~— × more readily</div>
             </div>
