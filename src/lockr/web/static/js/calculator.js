@@ -1,5 +1,5 @@
 
-const calcState = { result: null, sweepLuckey: null, sweepKopen: null };
+const calcState = { result: null, values: null, sweepLuckey: null, sweepKopen: null };
 
 // "kd" or "dg" -- which mode the K_target entry is in
 let calcKtargetMode = "kd";
@@ -162,7 +162,48 @@ const REGIME_TITLES = {
   mixed: "Both sides are limiting.",
 };
 
-function calcRenderVerdict(result) {
+// values.k_target === null means the request assumed a saturating target,
+// which is a different reason for a missing LOD than "pull too low to get there".
+function calcRenderLod(result, values) {
+  const atSaturation = values.k_target === null;
+
+  const lod2El = calcEl("calc-metric-lod2");
+  const lod3El = calcEl("calc-metric-lod3");
+  const ec50El = calcEl("calc-metric-ec50");
+  const noteEl = calcEl("calc-lod-note");
+
+  if (atSaturation) {
+    lod2El.textContent = "N/A";
+    lod3El.textContent = "N/A";
+    ec50El.textContent = "N/A";
+    noteEl.style.display = "block";
+    noteEl.textContent = "N/A (target assumed saturating) — enter a K_target and target concentration to get a detection limit.";
+  } else {
+    lod2El.textContent = result.lod_2x_nm === null ? "not achievable at current pull" : formatConcNm(result.lod_2x_nm);
+    lod3El.textContent = result.lod_3x_nm === null ? "not achievable at current pull" : formatConcNm(result.lod_3x_nm);
+    ec50El.textContent = result.ec50_nm === null ? "—" : formatConcNm(result.ec50_nm);
+    noteEl.style.display = "none";
+  }
+
+  const thresholdStr = calcEl("calc-clinical-threshold").value.trim();
+  const threshold = thresholdStr === "" ? null : parseFloat(thresholdStr);
+  const beatsEl = calcEl("calc-metric-beats");
+  const thresholdEl = calcEl("calc-metric-threshold");
+
+  thresholdEl.textContent = threshold === null ? "—" : formatConcNm(threshold);
+  if (threshold === null) {
+    beatsEl.textContent = "—";
+    beatsEl.style.color = "";
+  } else if (result.lod_2x_nm !== null && !atSaturation && result.lod_2x_nm <= threshold) {
+    beatsEl.textContent = "YES ✓";
+    beatsEl.style.color = "var(--success-700)";
+  } else {
+    beatsEl.textContent = "NO ✗";
+    beatsEl.style.color = "var(--danger-700)";
+  }
+}
+
+function calcRenderVerdict(result, values) {
   calcEl("calc-empty-state").style.display = "none";
   calcEl("calc-results").style.display = "block";
 
@@ -175,6 +216,7 @@ function calcRenderVerdict(result) {
   calcEl("calc-interpretation").textContent = result.interpretation;
   calcEl("calc-metric-max").textContent = formatFoldChange(result.max_fold_change);
   calcEl("calc-metric-ratio").textContent = roundSig(result.dominance_ratio, 3);
+  calcRenderLod(result, values);
 
   const banner = calcEl("calc-regime-banner");
   banner.className = `verdict-banner ${regimeToCssClass(result.regime)}`;
@@ -241,7 +283,8 @@ async function calcSubmit() {
     const result = await apiPost("/foldchange", values);
     calcEl("calc-undefined-result").style.display = "none";
     calcState.result = result;
-    calcRenderVerdict(result);
+    calcState.values = values;
+    calcRenderVerdict(result, values);
     await calcRunSweeps(values);
   } catch (err) {
     if (err.code === "UNDEFINED_RESULT") {
@@ -259,6 +302,8 @@ async function calcSubmit() {
 
 function calcReset() {
   calcEl("calc-form").reset();
+  calcState.result = null;
+  calcState.values = null;
   calcDetachPill();
   calcKdLastValue = "";
   calcKtargetMode = "kd";
@@ -338,6 +383,11 @@ function initCalculator() {
       calcDgUpdateDerived();
       calcUpdateValidity();
     });
+  });
+
+  // editing the threshold after a calc just re-checks it against the LOD already on hand
+  calcEl("calc-clinical-threshold").addEventListener("input", () => {
+    if (calcState.result) calcRenderLod(calcState.result, calcState.values);
   });
 
   calcEl("calc-submit").addEventListener("click", calcSubmit);

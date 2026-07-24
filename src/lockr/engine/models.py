@@ -83,6 +83,20 @@ class ScanResult:
 
 
 @dataclass
+class LodResult:
+    """Detection-limit read from a target-concentration dose-response sweep.
+
+    All three fields are None when Kd isn't known -- the sensor's response
+    doesn't depend on target concentration in the saturating case, so "how
+    little target can it detect" isn't a meaningful question.
+    """
+
+    lod_2x: float | None
+    lod_3x: float | None
+    ec50: float | None
+
+
+@dataclass
 class RegimeResult:
     luckey_dominance_ratio: float
     K_open: float

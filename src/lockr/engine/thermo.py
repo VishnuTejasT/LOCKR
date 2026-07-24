@@ -13,7 +13,7 @@ import math
 import numpy as np
 from scipy.optimize import curve_fit
 
-from .models import DEFAULT_PARAMS, FoldChangeResult, RegimeResult, ScanResult, SensorParams
+from .models import DEFAULT_PARAMS, FoldChangeResult, LodResult, RegimeResult, ScanResult, SensorParams
 
 
 def theta(target_conc: float, Kd: float) -> float:
@@ -77,6 +77,34 @@ def scan_dose_response(Kd: float, pull: float, params: SensorParams = DEFAULT_PA
     half = (mfc + 1) / 2
     ec50 = float(conc[np.argmin(np.abs(fcs - half))])
     return ScanResult("", Kd, pull, mfc, ec50, ec50 * 0.1)
+
+
+def lod_and_ec50(Kd: float | None, pull: float, params: SensorParams = DEFAULT_PARAMS,
+                 n: int = 500) -> LodResult:
+    # Kd=None -> saturating assumption, no dose-response curve to read a LOD off of.
+    if Kd is None:
+        return LodResult(None, None, None)
+
+    conc = np.logspace(-15, -5, n)
+    fcs = np.array([fold_change(c, Kd, pull, params) for c in conc])
+    mfc = float(fcs.max())
+
+    def _first_crossing(threshold: float) -> float | None:
+        hits = np.flatnonzero(fcs >= threshold)
+        return float(conc[hits[0]]) if hits.size else None
+
+    half = (mfc + 1) / 2
+    ec50 = float(conc[np.argmin(np.abs(fcs - half))])
+    return LodResult(_first_crossing(2.0), _first_crossing(3.0), ec50)
+
+
+def k_open_from_destab(k_open_current: float, n_mutations: int, destab_per_mut: float,
+                       RT: float = DEFAULT_PARAMS.RT) -> float:
+    # Each latch mutation shaves destab_per_mut off the cost to crack the cage
+    # open (Langan 2019-style destabilization estimate) -- see K_open tuning
+    # guide in the Assembly tab.
+    dg_cost = -RT * math.log(k_open_current)
+    return math.exp(-(dg_cost - n_mutations * destab_per_mut) / RT)
 
 
 def dg_open_cost(params: SensorParams = DEFAULT_PARAMS) -> float:

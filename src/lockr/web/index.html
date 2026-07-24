@@ -334,6 +334,10 @@
                   <div class="field-error" data-calc-error="target_conc"></div>
                   <div class="help-text">Leave both this and the affinity blank to assume the target is fully saturating (best case).</div>
                 </div>
+                <div class="field-row" style="margin-top:12px;">
+                  <label for="calc-clinical-threshold">Clinical detection target <span class="unit-suffix">nM</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">The minimum target concentration your sensor needs to detect for your application — not computed, look this up for your specific target.</span></span></label>
+                  <input id="calc-clinical-threshold" type="number" step="any" min="0" placeholder="e.g. 2 for PfLDH active infection">
+                </div>
               </div>
             </details>
 
@@ -370,7 +374,28 @@
                 <span class="rm-label">Key vs cage ratio<span class="help-tip" tabindex="0">?<span class="help-tip-body">This is how hard the key competes to hold the cage open when the latch unfolds initially. </span></span></span>
                 <span class="rm-value" id="calc-metric-ratio">—</span>
               </div>
+              <div class="result-metric">
+                <span class="rm-label">LOD (2× signal)<span class="help-tip" tabindex="0">?<span class="help-tip-body">The lowest target concentration that still gives at least a 2× signal jump over background.</span></span></span>
+                <span class="rm-value" id="calc-metric-lod2">—</span>
+              </div>
+              <div class="result-metric">
+                <span class="rm-label">LOD (3× signal)<span class="help-tip" tabindex="0">?<span class="help-tip-body">The lowest target concentration that still gives at least a 3× signal jump over background.</span></span></span>
+                <span class="rm-value" id="calc-metric-lod3">—</span>
+              </div>
+              <div class="result-metric">
+                <span class="rm-label">EC50<span class="help-tip" tabindex="0">?<span class="help-tip-body">The target concentration halfway between no signal and this design's maximum signal.</span></span></span>
+                <span class="rm-value" id="calc-metric-ec50">—</span>
+              </div>
+              <div class="result-metric">
+                <span class="rm-label">Clinical threshold</span>
+                <span class="rm-value" id="calc-metric-threshold">—</span>
+              </div>
+              <div class="result-metric">
+                <span class="rm-label">Beats cutoff</span>
+                <span class="rm-value" id="calc-metric-beats">—</span>
+              </div>
             </div>
+            <div id="calc-lod-note" class="help-text" style="display:none;"></div>
             <div id="calc-regime-banner" class="verdict-banner">
               <div>
                 <div class="verdict-title" id="calc-regime-title"></div>
@@ -537,6 +562,50 @@
               <div id="asm-seq-display" class="asm-seq-display"></div>
             </div>
           </div>
+
+          <details class="card" id="asm-kopen-section" style="margin-top:16px;">
+            <summary style="cursor:pointer; font-family:var(--font-display); font-size:18px; font-weight:600;">K_open Tuning Analysis</summary>
+            <div style="margin-top:16px;">
+              <div class="help-text" style="margin-bottom:16px;">Explore whether loosening K_open by mutating downstream latch residues would actually raise fold-change — this works independently of the checklist above.</div>
+
+              <div class="field-row">
+                <label for="asm-kopen-current">Current K_open <span class="unit-suffix">—</span></label>
+                <input id="asm-kopen-current" type="number" step="any" min="0" value="0.001" style="max-width:160px;">
+                <div class="help-text">Pulled from the Calculator tab if you've set one there; otherwise defaults to 0.001.</div>
+              </div>
+
+              <div class="field-row">
+                <label for="asm-kopen-preserve">Preserve positions <span class="unit-suffix">optional</span></label>
+                <input id="asm-kopen-preserve" type="text" placeholder="e.g. 1,2,11,12,15">
+                <div class="help-text">Positions critical for target binding — excluded from tuning candidates even if they're I/V.</div>
+              </div>
+
+              <div class="field-row">
+                <label>Destabilization per mutation</label>
+                <div class="segmented" id="asm-destab-segmented">
+                  <button type="button" data-destab="conservative" class="active">Conservative (0.5 kcal/mol)</button>
+                  <button type="button" data-destab="moderate">Moderate (1.0 kcal/mol)</button>
+                  <button type="button" data-destab="optimistic">Optimistic (1.5 kcal/mol)</button>
+                </div>
+              </div>
+
+              <div class="field-row" style="margin-top:20px;">
+                <button type="button" id="asm-kopen-analyze" class="btn-primary">Analyze K_open Tuning</button>
+              </div>
+              <div class="field-error" id="asm-kopen-error"></div>
+
+              <div id="asm-kopen-results" style="display:none; margin-top:20px;">
+                <div id="asm-kopen-candidates" class="help-text" style="margin-bottom:12px;"></div>
+                <div class="card" style="padding:0; overflow:hidden; box-shadow:none;">
+                  <div style="overflow-x:auto;">
+                    <table class="batch-table" id="asm-kopen-table"></table>
+                  </div>
+                </div>
+                <div id="asm-kopen-negative-note" class="help-text" style="display:none; margin-top:12px;"></div>
+                <div id="asm-kopen-crossover-note" class="help-text" style="margin-top:12px;"></div>
+              </div>
+            </div>
+          </details>
         </div>
       </div>
     </div>

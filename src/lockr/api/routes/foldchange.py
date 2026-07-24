@@ -83,19 +83,24 @@ def foldchange(request: FoldChangeRequest) -> FoldChangeResponse:
     try:
         at_saturation = request.target_conc is None
         max_fc = thermo.max_fold_change(Kd=1.0, pull=request.pull, params=params)
+        k_target_m = request.k_target * _NM_TO_M if request.k_target is not None else None
         if not at_saturation:
-            Kd = request.k_target * _NM_TO_M
+            Kd = k_target_m
             target_conc = request.target_conc * _NM_TO_M
             fc = thermo.fold_change(target_conc, Kd, request.pull, params)
         else:
             fc = max_fc
         regime_result = thermo.diagnose_regime(params, pull=request.pull)
         fraction_of_dominance_ratio = fc / params.luckey_ratio
+        lod_result = thermo.lod_and_ec50(k_target_m, request.pull, params)
     except (ZeroDivisionError, OverflowError, ValueError):
         raise ApiError("UNDEFINED_RESULT", _UNDEFINED_RESULT_MESSAGE)
 
     if not all(math.isfinite(v) for v in (fc, max_fc, params.luckey_ratio, fraction_of_dominance_ratio)):
         raise ApiError("UNDEFINED_RESULT", _UNDEFINED_RESULT_MESSAGE)
+
+    def _to_nm(value_m: float | None) -> float | None:
+        return None if value_m is None else value_m / _NM_TO_M
 
     quality, interpretation = _quality_and_interpretation(fc, max_fc, at_saturation)
 
@@ -116,4 +121,7 @@ def foldchange(request: FoldChangeRequest) -> FoldChangeResponse:
         verdict=regime_result.verdict,
         recommendations=_RECOMMENDATIONS[regime_result.regime],
         warnings=warnings,
+        lod_2x_nm=_to_nm(lod_result.lod_2x),
+        lod_3x_nm=_to_nm(lod_result.lod_3x),
+        ec50_nm=_to_nm(lod_result.ec50),
     )

@@ -39,6 +39,26 @@ def test_max_fold_change_independent_of_kd():
     assert a == pytest.approx(b)
 
 
+def test_lod_returns_none_when_fc_never_reaches_threshold():
+    # pull=1 means target binding does nothing (koe == K_open always), so FC
+    # never leaves 1x -- LOD_2x/3x must come back None, not crash or extrapolate.
+    r = thermo.lod_and_ec50(1e-9, pull=1)
+    assert r.lod_2x is None
+    assert r.lod_3x is None
+    assert r.ec50 is not None
+
+
+def test_lod_thresholds_are_ordered():
+    r = thermo.lod_and_ec50(1e-9, pull=20, params=SensorParams(K_open=1e-3, K_CK=1e-8, lucKey=1e-9))
+    assert r.lod_2x < r.lod_3x < r.ec50 or r.lod_3x is None
+
+
+def test_k_open_from_destab_increases_with_more_mutations():
+    vals = [thermo.k_open_from_destab(1e-3, n, 1.0) for n in (0, 1, 2, 3)]
+    assert vals == sorted(vals)
+    assert vals[0] == pytest.approx(1e-3)
+
+
 def test_fit_pull_strength_recovers_arbitrary_value():
     params = SensorParams(K_open=2e-3, K_CK=4e-8, lucKey=300e-9)
     Kd = 5e-10

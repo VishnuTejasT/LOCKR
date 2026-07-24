@@ -85,3 +85,20 @@ def test_foldchange_rejects_lone_target_conc_without_k_target():
         **_BASE_REQUEST, "k_target": None, "target_conc": 5.0,
     })
     assert response.status_code == 400
+
+
+def test_foldchange_lod_null_when_target_assumed_saturating():
+    response = client.post("/foldchange", json={**_BASE_REQUEST, "k_target": None, "target_conc": None})
+    body = response.json()
+    assert body["lod_2x_nm"] is None
+    assert body["lod_3x_nm"] is None
+    assert body["ec50_nm"] is None
+
+
+def test_foldchange_lod_matches_documented_script7_v10_numbers():
+    response = client.post("/foldchange", json={
+        **_BASE_REQUEST, "k_target": 0.1, "target_conc": 50.0,  # k_target = 100pM = KD_V10
+    })
+    body = response.json()
+    assert body["lod_2x_nm"] == pytest.approx(0.01008, rel=0.15)
+    assert body["ec50_nm"] == pytest.approx(0.1008, rel=0.05)

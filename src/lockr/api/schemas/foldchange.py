@@ -53,3 +53,6 @@ class FoldChangeResponse(BaseModel):
     verdict: str
     recommendations: list[str]
     warnings: list[str] = []
+    lod_2x_nm: float | None = None
+    lod_3x_nm: float | None = None
+    ec50_nm: float | None = None

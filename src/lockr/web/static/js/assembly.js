@@ -219,7 +219,179 @@ function asmReset() {
   asmEl("asm-seq-display").innerHTML = "";
   asmEl("asm-empty-state").style.display = "block";
   asmEl("asm-results").style.display = "none";
+  asmLastKopenData = null;
+  asmEl("asm-kopen-results").style.display = "none";
+  asmEl("asm-kopen-error").textContent = "";
+  asmEl("asm-kopen-preserve").value = "";
+  const calcKopen = document.getElementById("calc-kopen");
+  asmEl("asm-kopen-current").value = (calcKopen && calcKopen.value) || "0.001";
   asmUpdateValidity();
+}
+
+// --- K_open Tuning Analysis -------------------------------------------
+
+let asmDestabPreset = "conservative";
+let asmLastKopenData = null;
+
+// I/V residues in the latch window, downstream of the binder(s), not in
+// preserve_positions -- the same logic used to find I346/I356 by hand.
+function asmFindKopenCandidates(fields, preservePositions) {
+  const seq = fields.full_sequence;
+  const lw = fields.latch_window;
+  const gs = fields.graft_spec;
+  if (!seq || !lw.start || !lw.end) return [];
+
+  let binderEnd = gs.start ? gs.start + (gs.binder || "").length - 1 : 0;
+  if (gs.binder2_start) binderEnd = Math.max(binderEnd, gs.binder2_start + gs.binder2.length - 1);
+
+  const candidates = [];
+  for (let pos = lw.start; pos <= Math.min(lw.end, seq.length); pos++) {
+    const residue = seq[pos - 1];
+    if (residue !== "I" && residue !== "V") continue;
+    if (pos <= binderEnd) continue;
+    if (preservePositions.includes(pos)) continue;
+    candidates.push({ position: pos, residue });
+  }
+  return candidates;
+}
+
+function asmParsePositions(text) {
+  return text.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n));
+}
+
+function asmRenderKopenCandidates(candidates) {
+  const el = asmEl("asm-kopen-candidates");
+  if (candidates.length === 0) {
+    el.textContent = "No candidate I/V positions found in the native latch region downstream of the binder — latch tuning may require custom design.";
+  } else {
+    const labels = candidates.map((c) => `${c.residue}${c.position}`).join(", ");
+    el.textContent = `Candidate positions: ${labels} (downstream of binder, safe to mutate)`;
+  }
+}
+
+const ASM_REGIME_LABELS = { key_limited: "Key-limited", K_open_limited: "K_open-limited", mixed: "Mixed" };
+const ASM_HELPS_BADGE = { yes: ["Yes", "badge-Low"], no: ["No", "badge-muted"],
+                         slightly_worse: ["Slightly worse", "badge-Moderate"] };
+
+function asmRenderKopenTable(data) {
+  const rows = [data.baseline, ...data.scenarios.filter((s) => s.preset === asmDestabPreset)];
+  const table = asmEl("asm-kopen-table");
+  table.innerHTML = "";
+
+  const thead = document.createElement("thead");
+  thead.innerHTML = "<tr><th>Mutations</th><th>K_open</th><th>Fold-change</th><th>Regime</th><th>Helps?</th></tr>";
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  rows.forEach((row) => {
+    const tr = document.createElement("tr");
+
+    const mutTd = document.createElement("td");
+    mutTd.textContent = row.mutations === 0 ? "Baseline" : `+${row.mutations}`;
+    tr.appendChild(mutTd);
+
+    const kopenTd = document.createElement("td");
+    kopenTd.className = "font-mono";
+    kopenTd.textContent = roundSig(row.k_open, 3);
+    tr.appendChild(kopenTd);
+
+    const fcTd = document.createElement("td");
+    fcTd.className = "font-mono";
+    fcTd.textContent = formatFoldChange(row.fold_change);
+    tr.appendChild(fcTd);
+
+    const regimeTd = document.createElement("td");
+    regimeTd.textContent = ASM_REGIME_LABELS[row.regime] || row.regime;
+    tr.appendChild(regimeTd);
+
+    const helpsTd = document.createElement("td");
+    if (row.helps === "unchanged") {
+      helpsTd.textContent = "—";
+    } else {
+      const [label, cls] = ASM_HELPS_BADGE[row.helps] || [row.helps, "badge-muted"];
+      const badge = document.createElement("span");
+      badge.className = `badge ${cls}`;
+      badge.textContent = label;
+      helpsTd.appendChild(badge);
+    }
+    tr.appendChild(helpsTd);
+
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+}
+
+function asmRenderKopenNotes(data, currentLuckey) {
+  const mutationRows = data.scenarios.filter((s) => s.preset === asmDestabPreset);
+  const anyHelps = mutationRows.some((s) => s.helps === "yes");
+  const negativeEl = asmEl("asm-kopen-negative-note");
+  if (!anyHelps) {
+    negativeEl.style.display = "block";
+    negativeEl.textContent = `At your current lucKey/K_CK ratio (${roundSig(data.dominance_ratio, 3)}), K_open changes have negligible effect. Latch tuning will only help if lucKey/K_CK is reduced to be comparable to K_open. Try lowering lucKey to ${roundSig(data.crossover_luckey_nm, 3)} nM.`;
+  } else {
+    negativeEl.style.display = "none";
+  }
+
+  asmEl("asm-kopen-crossover-note").textContent =
+    `Latch tuning becomes meaningful when lucKey/K_CK ≈ K_open. At your current settings: lucKey/K_CK = ${roundSig(data.dominance_ratio, 3)}, K_open = ${roundSig(data.baseline.k_open, 3)}. Tuning helps when [lucKey] ≈ ${roundSig(data.crossover_luckey_nm, 3)} nM (currently ${roundSig(currentLuckey, 3)} nM).`;
+}
+
+// Falls back to the Calculator tab's fields (which ship pre-filled with
+// ECLIPSE-example defaults) so this works even if the user never touched
+// the Calculator tab.
+function asmReadChainedParams() {
+  const readNum = (id, fallback) => {
+    const el = document.getElementById(id);
+    const v = el ? parseFloat(el.value) : NaN;
+    return isNaN(v) ? fallback : v;
+  };
+  return {
+    k_ck: readNum("calc-kck", 10),
+    luckey: readNum("calc-luckey", 500),
+    pull: readNum("calc-pull", 10),
+  };
+}
+
+async function asmKopenAnalyze() {
+  const fields = asmReadFields();
+  const errEl = asmEl("asm-kopen-error");
+  errEl.textContent = "";
+
+  if (!fields.full_sequence || !fields.latch_window.start || !fields.latch_window.end) {
+    errEl.textContent = "Fill in the full sequence and graftable latch window first.";
+    return;
+  }
+
+  const kopenCurrent = parseFloat(asmEl("asm-kopen-current").value);
+  if (!(kopenCurrent > 0)) {
+    errEl.textContent = "Current K_open must be > 0.";
+    return;
+  }
+
+  const preservePositions = asmParsePositions(asmEl("asm-kopen-preserve").value);
+  const candidates = asmFindKopenCandidates(fields, preservePositions);
+  asmRenderKopenCandidates(candidates);
+
+  const chained = asmReadChainedParams();
+  const button = asmEl("asm-kopen-analyze");
+  const originalLabel = button.innerHTML;
+  button.disabled = true;
+  button.innerHTML = '<span class="spinner"></span>Analyzing…';
+
+  try {
+    const data = await apiPost("/kopen-scenarios", {
+      k_open_current: kopenCurrent, k_ck: chained.k_ck, luckey: chained.luckey, pull: chained.pull,
+    });
+    asmLastKopenData = data;
+    asmRenderKopenTable(data);
+    asmRenderKopenNotes(data, chained.luckey);
+    asmEl("asm-kopen-results").style.display = "block";
+  } catch (err) {
+    showToast(err.networkError ? err.message : `${err.code || "ERROR"}: ${err.message}`);
+  } finally {
+    button.disabled = false;
+    button.innerHTML = originalLabel;
+  }
 }
 
 function initAssembly() {
@@ -250,6 +422,22 @@ function initAssembly() {
   asmEl("asm-submit").addEventListener("click", asmSubmit);
   asmEl("asm-reset").addEventListener("click", asmReset);
   asmUpdateValidity();
+
+  const calcKopen = document.getElementById("calc-kopen");
+  if (calcKopen && calcKopen.value) asmEl("asm-kopen-current").value = calcKopen.value;
+
+  document.querySelectorAll("#asm-destab-segmented button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      asmDestabPreset = btn.dataset.destab;
+      document.querySelectorAll("#asm-destab-segmented button").forEach((b) => b.classList.toggle("active", b === btn));
+      if (asmLastKopenData) {
+        asmRenderKopenTable(asmLastKopenData);
+        asmRenderKopenNotes(asmLastKopenData, asmReadChainedParams().luckey);
+      }
+    });
+  });
+
+  asmEl("asm-kopen-analyze").addEventListener("click", asmKopenAnalyze);
 }
 
 document.addEventListener("DOMContentLoaded", initAssembly);
