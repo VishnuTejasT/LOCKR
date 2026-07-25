@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "lockr"
 version = "0.1.0"
-description = "ECLIPSE LOCKR biosensor design tool — shared thermodynamic engine (iGEM 2026)"
+description = "ECLIPSE LOCKR biosensor design tool: shared thermodynamic engine (iGEM 2026)"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Vishnu T.", email = "vishnutejastadipatri@gmail.com" }]
@@ -19,6 +19,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest>=7", "httpx>=0.27"]
+grafting = ["pyrosetta"]
 
 [project.scripts]
 lockr = "lockr.cli:main"
@@ -26,5 +27,9 @@ lockr = "lockr.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"lockr.data" = ["*.pdb"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["slow: runs a real PyRosetta threading scan, skip with -m 'not slow'"]

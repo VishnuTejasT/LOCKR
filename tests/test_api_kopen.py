@@ -38,7 +38,7 @@ def test_kopen_scenarios_baseline_matches_max_fold_change():
 def test_kopen_scenarios_never_help_below_crossover():
     # max_fold_change(K_open) is monotonically decreasing in K_open (loosening
     # the cage only ever raises background), so destabilizing mutations can
-    # only leave saturating fold-change flat or make it worse -- never "yes".
+    # only leave saturating fold-change flat or make it worse, never "yes".
     # This holds even well below the lucKey/K_CK crossover.
     response = client.post("/kopen-scenarios", json={
         "k_open_current": 0.001, "k_ck": 10.0, "luckey": 0.01, "pull": 10.0,

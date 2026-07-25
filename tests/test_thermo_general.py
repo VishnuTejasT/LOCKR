@@ -41,7 +41,7 @@ def test_max_fold_change_independent_of_kd():
 
 def test_lod_returns_none_when_fc_never_reaches_threshold():
     # pull=1 means target binding does nothing (koe == K_open always), so FC
-    # never leaves 1x -- LOD_2x/3x must come back None, not crash or extrapolate.
+    # never leaves 1x, LOD_2x/3x must come back None, not crash or extrapolate.
     r = thermo.lod_and_ec50(1e-9, pull=1)
     assert r.lod_2x is None
     assert r.lod_3x is None

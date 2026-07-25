@@ -27,7 +27,7 @@ function drawLogXPlot(svg, { lines, marker, xIsConcentration, yLabel }) {
   const allY = lines.flatMap((l) => l.points.map((p) => p.y));
   if (marker) { allX.push(marker.x); allY.push(marker.y); }
   const xMin = Math.min(...allX), xMax = Math.max(...allX);
-  // y always starts at 1 (no change), never 0 -- per spec 7.1.
+  // y always starts at 1 (no change), never 0, per spec 7.1.
   const yMin = 1;
   const yMax = Math.max(...allY) * 1.1;
 

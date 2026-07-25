@@ -1,4 +1,4 @@
-# LOCKR Biosensor Design Tool — UI/UX & Design Specification
+# LOCKR Biosensor Design Tool, UI/UX & Design Specification
 
 Companion to the project plan. This is the build-level spec: design tokens, screen layouts, every field with its control/default/validation, exact API request/response schemas, plot specifications, the cross-tab chain mechanism, error states, and the actual interface copy. Someone should be able to build the front end exactly as intended from this document.
 
@@ -7,8 +7,8 @@ Companion to the project plan. This is the build-level spec: design tokens, scre
 ## Table of Contents
 1. Design System
 2. Global Layout & Shell
-3. Module A — Scanner (full screen spec)
-4. Module B — Calculator (full screen spec)
+3. Module A, Scanner (full screen spec)
+4. Module B, Calculator (full screen spec)
 5. The Chain (cross-tab state)
 6. API Schemas
 7. Plot Specifications
@@ -28,11 +28,11 @@ Reuses the ECLIPSE wiki identity so the tool reads as part of the same project. 
 
 ```
 /* Brand */
---brand-900:  #5e0808;   /* deepest red — hover/active on primary */
+--brand-900:  #5e0808;   /* deepest red, hover/active on primary */
 --brand-700:  #870b0b;   /* PRIMARY brand red (matches wiki) */
---brand-500:  #b91c1c;   /* lighter red — accents, focus rings */
---brand-100:  #f6e7e7;   /* tint — selected rows, subtle fills */
---brand-050:  #fbf3f3;   /* faintest tint — hover backgrounds */
+--brand-500:  #b91c1c;   /* lighter red, accents, focus rings */
+--brand-100:  #f6e7e7;   /* tint, selected rows, subtle fills */
+--brand-050:  #fbf3f3;   /* faintest tint, hover backgrounds */
 
 /* Neutrals (warm, paper-like) */
 --canvas:     #fbfaf8;   /* page background */
@@ -69,12 +69,12 @@ Reuses the ECLIPSE wiki identity so the tool reads as part of the same project. 
 | H1 (screen title) | Cormorant Garamond | 32 / 40 | 600 |
 | H2 (panel title) | DM Sans | 22 / 28 | 600 |
 | H3 (field group) | DM Sans | 16 / 22 | 600 |
-| Body / labels | DM Sans | 15 / 22 | 400–500 |
+| Body / labels | DM Sans | 15 / 22 | 400-500 |
 | Small / help text | DM Sans | 13 / 18 | 400 |
 | Caption / units | DM Sans | 12 / 16 | 500 |
-| **Sequence & numeric data** | **IBM Plex Mono** | 15 / 24 | 400–500 |
+| **Sequence & numeric data** | **IBM Plex Mono** | 15 / 24 | 400-500 |
 
-Cormorant Garamond and DM Sans/Inter already load on the wiki. **Add IBM Plex Mono** — amino-acid sequences must be monospace so positions align under the ruler, and tabular Kd values read cleaner in mono.
+Cormorant Garamond and DM Sans/Inter already load on the wiki. **Add IBM Plex Mono**, amino-acid sequences must be monospace so positions align under the ruler, and tabular Kd values read cleaner in mono.
 
 ### 1.3 Spacing, radii, elevation
 
@@ -118,7 +118,7 @@ Cormorant Garamond and DM Sans/Inter already load on the wiki. **Add IBM Plex Mo
 
 ---
 
-## 3. Module A — Scanner (full screen spec)
+## 3. Module A, Scanner (full screen spec)
 
 ### 3.1 Layout (desktop, two columns)
 
@@ -148,14 +148,14 @@ Cormorant Garamond and DM Sans/Inter already load on the wiki. **Add IBM Plex Mo
 
 | # | Field | Control | Default | Validation |
 |---|-------|---------|---------|------------|
-| A1 | Mode | Segmented `Single / Batch` | Single | — |
-| A2 | Sequence (Single) | Monospace textarea, auto-uppercase, whitespace stripped live | empty | Only `ACDEFGHIKLMNPQRSTVWY`; 1–200 residues; non-empty on submit |
+| A1 | Mode | Segmented `Single / Batch` | Single |, |
+| A2 | Sequence (Single) | Monospace textarea, auto-uppercase, whitespace stripped live | empty | Only `ACDEFGHIKLMNPQRSTVWY`; 1-200 residues; non-empty on submit |
 | A3 | Sequences (Batch) | FASTA file upload + drag-drop, or paste FASTA | none | Valid FASTA; each record passes A2 rules; ≤500 records |
-| A4 | pH | Number input | `7.4` | 0–14, step 0.1 |
-| A5 | Sensitive window | Dual-handle range slider over the position ruler + numeric start/end | full length (1–N) | start ≤ end, within 1–N |
-| A6 | Substitution policy | Segmented `Conservative / Neutralizing` | Conservative | — |
-| A7 | Scan | Primary button | — | disabled until A2/A3 valid |
-| A8 | Reset | Ghost button | — | clears inputs + results |
+| A4 | pH | Number input | `7.4` | 0-14, step 0.1 |
+| A5 | Sensitive window | Dual-handle range slider over the position ruler + numeric start/end | full length (1-N) | start ≤ end, within 1-N |
+| A6 | Substitution policy | Segmented `Conservative / Neutralizing` | Conservative |, |
+| A7 | Scan | Primary button |, | disabled until A2/A3 valid |
+| A8 | Reset | Ghost button |, | clears inputs + results |
 
 - **Conservative** = D→N, E→Q (charge removed, shape/H-bonding kept). **Neutralizing** = D→A, E→A (the literal ECLIPSE fix). Tooltip on the control explains both.
 - The **sensitive window** slider sits directly above/below the sequence so handles line up with residues. Residues outside the window are dimmed in the annotated output.
@@ -167,9 +167,9 @@ Cormorant Garamond and DM Sans/Inter already load on the wiki. **Add IBM Plex Mo
 ### 3.4 Results (after Scan)
 
 **A. Liability summary card**
-- **Liability gauge:** horizontal segmented bar, 0–100, with band thresholds (Low 0–33 green, Moderate 34–66 amber, High 67–100 red) and a needle/marker at the score. Big band label (Cormorant 32): "High liability".
+- **Liability gauge:** horizontal segmented bar, 0-100, with band thresholds (Low 0-33 green, Moderate 34-66 amber, High 67-100 red) and a needle/marker at the score. Big band label (Cormorant 32): "High liability".
 - **Net charge** at the chosen pH (mono, signed).
-- **Predicted K_CK penalty** band with one-line plain text (see copy §9): e.g. "Severe — likely to collapse cage-key affinity."
+- **Predicted K_CK penalty** band with one-line plain text (see copy §9): e.g. "Severe, likely to collapse cage-key affinity."
 
 **B. Annotated sequence**
 - Residue chips in mono, each a small rounded box; acidic residues filled `--danger-100` with `--danger-700` text, flagged (in-window) acidic residues get a solid red underline. Position ruler beneath. Hover a chip → tooltip with that residue's contribution and pKa.
@@ -181,11 +181,11 @@ Cormorant Garamond and DM Sans/Inter already load on the wiki. **Add IBM Plex Mo
 - Original vs suggested shown as an aligned mono diff: unchanged residues `--text-muted`, substituted residues highlighted (old struck/red, new green). Shows recomputed liability score + delta ("87 → 8"). 
 - Two actions: **Copy variant** and **→ Send K_CK estimate to Calculator** (see §5). If multiple variants, a small "1 / 3" stepper.
 
-**Batch mode results:** replace B–D with a **sortable table** — columns: ID, length, net charge, liability score, band (colored pill), predicted K_CK penalty, top suggested variant. Sort by any column; default sort = liability ascending (cleanest first). Row click expands to the single-sequence detail (B–D). **Export CSV** button top-right.
+**Batch mode results:** replace B-D with a **sortable table**, columns: ID, length, net charge, liability score, band (colored pill), predicted K_CK penalty, top suggested variant. Sort by any column; default sort = liability ascending (cleanest first). Row click expands to the single-sequence detail (B-D). **Export CSV** button top-right.
 
 ---
 
-## 4. Module B — Calculator (full screen spec)
+## 4. Module B, Calculator (full screen spec)
 
 ### 4.1 Layout (desktop, two columns)
 
@@ -201,8 +201,8 @@ Cormorant Garamond and DM Sans/Inter already load on the wiki. **Add IBM Plex Mo
 │ │ [lucKey]    [500] nM  ~  │   │  │ │ + operating-point marker       │ │
 │ └──────────────────────────┘   │  │ └────────────────────────────────┘ │
 │ ▸ Advanced (target binding)    │  │ ┌ Fold-change vs K_open ────────┐ │
-│   K_target  [—] nM             │  │ │ shows if latch tuning helps    │ │
-│   [target]  [—] nM             │  │ └────────────────────────────────┘ │
+│   K_target  [, ] nM             │  │ │ shows if latch tuning helps    │ │
+│   [target]  [, ] nM             │  │ └────────────────────────────────┘ │
 │                                │  │ ┌ Recommendations ──────────────┐ │
 │ [ Calculate ]  [ Reset ]       │  │ │ bulleted, regime-specific      │ │
 │                                │  │ └────────────────────────────────┘ │
@@ -214,13 +214,13 @@ Cormorant Garamond and DM Sans/Inter already load on the wiki. **Add IBM Plex Mo
 | # | Field | Symbol | Control | Default | Units | Validation |
 |---|-------|--------|---------|---------|-------|------------|
 | B1 | Cage-key dissociation const | K_CK | Number, sci-notation aware, mono | `10` | nM | > 0 |
-| B2 | Latch opening (basal/OFF) | K_open(OFF) | Number | `0.01` | — (dimensionless) | > 0 |
-| B3 | Latch opening (target/ON) | K_open(ON) | Number | `1.0` | — | > 0; UI warns if ON ≤ OFF |
+| B2 | Latch opening (basal/OFF) | K_open(OFF) | Number | `0.01` |, (dimensionless) | > 0 |
+| B3 | Latch opening (target/ON) | K_open(ON) | Number | `1.0` |, | > 0; UI warns if ON ≤ OFF |
 | B4 | lucKey concentration | [lucKey] | Number, sweepable (`~`) | `500` | nM | > 0 |
 | B5 | Target affinity (adv.) | K_target | Number | empty | nM | > 0 or empty |
 | B6 | Target concentration (adv.) | [target] | Number | empty | nM | ≥ 0 or empty |
-| B7 | Calculate | — | Primary button | — | — | enabled when B1–B4 valid |
-| B8 | Reset | — | Ghost button | — | — | restores defaults |
+| B7 | Calculate |, | Primary button |, |, | enabled when B1-B4 valid |
+| B8 | Reset |, | Ghost button |, |, | restores defaults |
 
 - **Defaults are placeholders** anchored to ECLIPSE's regime ([lucKey] 500 nM, K_CK 10 nM → ceiling 50). Replace with real values once confirmed; mark them as examples in help text.
 - **Per-field affordances:** `⇄` on K_CK = "pull from Scanner" (chain, §5). `~` on a field = toggle **sweep mode**: the single input expands into `min / max / steps` + a `linear · log` switch (default **log**). B3 toggle lets the user enter ON value *or* ΔK_open.
@@ -230,12 +230,12 @@ Cormorant Garamond and DM Sans/Inter already load on the wiki. **Add IBM Plex Mo
 
 **A. Verdict card** (the thing a non-coder reads first)
 - **Hero fold-change** (Cormorant 40): `38×`.
-- Sub-line: dominance ratio `[lucKey]/K_CK = 50` and `% of dominance ratio` — **not labeled "ceiling."** This number is a diagnostic threshold (it tells you whether K_open changes will move fold-change), not an achievable fold-change target. The true asymptotic max as pull→∞ is `(1+K_open+lucKey/K_CK)/K_open`, a much larger and practically irrelevant number given realistic pull values (10–30) — don't surface it as a headline figure; it would mislead a wet-lab user into thinking 50× (or whatever the ratio is) is the ceiling they're aiming for, when realistic fold-change at typical pull is much closer to `(1+pull)`.
-- **Regime banner** — full-width colored callout with icon + plain-language verdict (exact copy §9.3). Three states: `key-limited` (amber), `K_open-limited` (green/info), `mixed` (neutral).
+- Sub-line: dominance ratio `[lucKey]/K_CK = 50` and `% of dominance ratio`, **not labeled "ceiling."** This number is a diagnostic threshold (it tells you whether K_open changes will move fold-change), not an achievable fold-change target. The true asymptotic max as pull→∞ is `(1+K_open+lucKey/K_CK)/K_open`, a much larger and practically irrelevant number given realistic pull values (10-30), don't surface it as a headline figure; it would mislead a wet-lab user into thinking 50× (or whatever the ratio is) is the ceiling they're aiming for, when realistic fold-change at typical pull is much closer to `(1+pull)`.
+- **Regime banner**, full-width colored callout with icon + plain-language verdict (exact copy §9.3). Three states: `key-limited` (amber), `K_open-limited` (green/info), `mixed` (neutral).
 
-**B. Plots** — see §7. Primary: fold-change vs [lucKey] (log-x) with a dashed reference line at the dominance ratio and a marker at the operating point. Secondary: fold-change vs K_open, which visually demonstrates whether latch tuning moves the curve (in the key-limited regime it's flat — that's the point).
+**B. Plots**, see §7. Primary: fold-change vs [lucKey] (log-x) with a dashed reference line at the dominance ratio and a marker at the operating point. Secondary: fold-change vs K_open, which visually demonstrates whether latch tuning moves the curve (in the key-limited regime it's flat, that's the point).
 
-**C. Recommendations** — regime-specific bullets (copy §9.3), e.g. for key-limited: raise [lucKey], improve K_CK; *don't* bother with latch mutations.
+**C. Recommendations**, regime-specific bullets (copy §9.3), e.g. for key-limited: raise [lucKey], improve K_CK; *don't* bother with latch mutations.
 
 ---
 
@@ -254,7 +254,7 @@ The integration feature: Scanner's predicted K_CK feeds the Calculator.
 - The `⇄` icon on B1 also opens a tiny menu: "Use latest Scanner estimate" / "Enter manually."
 
 ### UX rules
-- Piping never silently overwrites a value the user has manually typed — if B1 was edited, show a confirm ("Replace your K_CK of X with Scanner estimate Y?").
+- Piping never silently overwrites a value the user has manually typed, if B1 was edited, show a confirm ("Replace your K_CK of X with Scanner estimate Y?").
 - The pill makes provenance obvious so a user always knows whether a number is theirs or derived.
 
 ---
@@ -340,7 +340,7 @@ All endpoints are local (`http://localhost:PORT`), synchronous, JSON in/out. Uni
 ```
 Note: `dominance_ratio` (= `lucKey/K_CK`) is a diagnostic threshold, NOT an achievable
 fold-change value. Do not call it "ceiling" anywhere in the response or the UI that
-consumes it — see §4 for why.
+consumes it, see §4 for why.
 
 ### 6.3 `POST /sweep`
 **Request**
@@ -381,25 +381,25 @@ Returns the `suggested_variants` array shape from `/scan`.
 Library: Recharts (or Plotly) in the frontend; matplotlib mirrors for CLI/figure export.
 
 ### 7.1 Fold-change vs [lucKey]  (primary)
-- **X axis:** [lucKey], **log scale**, nM, range covering ≥3 decades around the operating point (e.g. 1–10,000 nM). Ticks at decades; minor ticks logged.
+- **X axis:** [lucKey], **log scale**, nM, range covering ≥3 decades around the operating point (e.g. 1-10,000 nM). Ticks at decades; minor ticks logged.
 - **Y axis:** fold-change, linear (or log if it spans decades), starts at 1 (no change), not 0.
 - **Series:** solid `--plot-line` fold-change curve.
-- **Dominance-ratio reference:** dashed `--plot-ceiling` line/curve at `[lucKey]/K_CK` *for the current K_CK*, labeled **"lucKey/K_CK dominance ratio"** — never "ceiling." This is a diagnostic threshold the realistic curve sits near at typical pull values; it is not the curve's true mathematical asymptote (that's `(1+K_open+lucKey/K_CK)/K_open`, a much larger and not practically meaningful number — don't plot it).
+- **Dominance-ratio reference:** dashed `--plot-ceiling` line/curve at `[lucKey]/K_CK` *for the current K_CK*, labeled **"lucKey/K_CK dominance ratio"**, never "ceiling." This is a diagnostic threshold the realistic curve sits near at typical pull values; it is not the curve's true mathematical asymptote (that's `(1+K_open+lucKey/K_CK)/K_open`, a much larger and not practically meaningful number, don't plot it).
 - **Operating-point marker:** filled `--plot-marker` dot at the user's [lucKey], with a callout label showing the value. 
 - **Zones (optional):** faint background shading where fold-change is poor (<2×, `--plot-zone-bad`) vs strong.
 - **Tooltip:** on hover, "[lucKey] = X nM → fold-change Y×".
 
-### 7.2 Fold-change vs K_open  (secondary — the teaching plot)
+### 7.2 Fold-change vs K_open  (secondary, the teaching plot)
 - **X axis:** K_open, log scale, dimensionless.
 - **Y axis:** fold-change.
-- Curve shows how fold-change responds to latch tuning. **In the key-limited regime this curve is nearly flat** — that flatness is the visual proof that latch mutations won't help, and the verdict text should point the user to it ("see how the curve barely moves").
+- Curve shows how fold-change responds to latch tuning. **In the key-limited regime this curve is nearly flat**, that flatness is the visual proof that latch mutations won't help, and the verdict text should point the user to it ("see how the curve barely moves").
 - Operating-point marker at current K_open(OFF).
 
 ### 7.3 Optional 2D heatmap (advanced)
 - Fold-change over (K_CK on log-x, [lucKey] on log-y), color = fold-change. Operating point marked. Helpful for seeing the whole design space at once; behind an "Advanced view" toggle.
 
 ### Axis/number rules
-- Every concentration axis: **log scale by default**, auto unit scaling in tick labels (fM/pM/nM/µM) — never raw `0.000042`.
+- Every concentration axis: **log scale by default**, auto unit scaling in tick labels (fM/pM/nM/µM), never raw `0.000042`.
 - Linear toggle available per plot.
 - Colorblind-safe: don't rely on red/green alone in plots; the dominance-ratio reference is distinguished by dash pattern, zones by position + subtle hue.
 
@@ -411,14 +411,14 @@ Library: Recharts (or Plotly) in the frontend; matplotlib mirrors for CLI/figure
 |-----------|----------|
 | Invalid character typed in sequence | Rejected on input; field shakes; caption "only standard amino acids (ACDEFG…)" |
 | Empty sequence on Scan | Scan button disabled; tooltip "enter a sequence first" |
-| Sequence > 200 aa | Accept but warn: "long sequence — liability model tuned for peptide-scale binders" |
+| Sequence > 200 aa | Accept but warn: "long sequence, liability model tuned for peptide-scale binders" |
 | Malformed FASTA (batch) | List which records failed with line numbers; scan the valid ones, flag skipped |
-| Sensitive window outside length | Clamp handles to 1–N; can't invert (start ≤ end enforced) |
+| Sensitive window outside length | Clamp handles to 1-N; can't invert (start ≤ end enforced) |
 | K_CK / K_open / [lucKey] ≤ 0 or blank | Field border `--danger-700`, inline message; Calculate disabled |
 | K_open(ON) ≤ K_open(OFF) | Non-blocking warning pill: "target should stabilize the open state (ON > OFF)" |
 | Sweep min ≥ max or steps < 2 | Inline error on the sweep controls; plot not requested |
-| Backend not reachable (`lockr serve` down) | Toast: "Can't reach the local engine — is `lockr serve` running?" with retry |
-| Computation returns NaN/inf | Result card shows "Parameters produce an undefined result — check K_open and K_CK"; no plot |
+| Backend not reachable (`lockr serve` down) | Toast: "Can't reach the local engine, is `lockr serve` running?" with retry |
+| Computation returns NaN/inf | Result card shows "Parameters produce an undefined result, check K_open and K_CK"; no plot |
 | First load, no input yet | Results pane shows empty state (see §9.4) |
 | Batch CSV export with 0 valid rows | Export disabled; tooltip explains |
 
@@ -434,14 +434,14 @@ Loading: computations are sub-second, but show a subtle inline spinner on the Ca
 
 ### 9.2 Liability / K_CK penalty bands (Scanner)
 - Low: **"Low liability."** "No significant charge liabilities in the sensitive region. Cage-key affinity should be preserved."
-- Moderate: **"Moderate liability."** "Some acidic residues in sensitive positions. K_CK may be partially weakened — review the flagged residues."
+- Moderate: **"Moderate liability."** "Some acidic residues in sensitive positions. K_CK may be partially weakened, review the flagged residues."
 - High / Severe: **"High liability."** "Multiple acidic residues in the sensitive region are likely to collapse cage-key affinity (K_CK). Strongly consider the suggested charge-optimized variant."
 
 ### 9.3 Regime verdicts (Calculator)
-- **Key-limited:** banner title "Key-limited regime." Body: "Your fold-change is near the lucKey/K_CK dominance threshold (a diagnostic ratio, not an achievable target). Tuning the latch (K_open) won't raise it — see how the K_open curve stays flat. To improve dynamic range, raise [lucKey] or tighten cage-key affinity (lower K_CK)."
-  - Recommendations: "Increase [lucKey] — this raises the dominance threshold." · "Improve cage-key affinity (lower K_CK)." · "Latch / K_open mutations will not help in this regime."
+- **Key-limited:** banner title "Key-limited regime." Body: "Your fold-change is near the lucKey/K_CK dominance threshold (a diagnostic ratio, not an achievable target). Tuning the latch (K_open) won't raise it, see how the K_open curve stays flat. To improve dynamic range, raise [lucKey] or tighten cage-key affinity (lower K_CK)."
+  - Recommendations: "Increase [lucKey], this raises the dominance threshold." · "Improve cage-key affinity (lower K_CK)." · "Latch / K_open mutations will not help in this regime."
 - **K_open-limited:** banner title "K_open-limited regime." Body: "You have headroom below the lucKey/K_CK dominance threshold. Tuning the latch to favor the open state on target binding will increase fold-change."
-  - Recommendations: "Engineer the latch to raise K_open(ON) relative to K_open(OFF)." · "You're not key-limited yet — [lucKey] increases give diminishing returns."
+  - Recommendations: "Engineer the latch to raise K_open(ON) relative to K_open(OFF)." · "You're not key-limited yet, [lucKey] increases give diminishing returns."
 - **Mixed:** banner title "Mixed regime." Body: "Both the latch (K_open) and the key (lucKey/K_CK) are constraining fold-change. Improvements to either will help; the plots show which gives more."
 
 ### 9.4 Empty states
@@ -449,7 +449,7 @@ Loading: computations are sub-second, but show a subtle inline spinner on the Ca
 - Calculator results pane: "Set your parameters and calculate to see predicted fold-change, the lucKey/K_CK dominance ratio, and what's limiting your sensor."
 
 ### 9.5 Key tooltips
-- K_CK (`?`): "Cage-key dissociation constant — how tightly lucKey binds the open cage. Lower = tighter binding."
+- K_CK (`?`): "Cage-key dissociation constant, how tightly lucKey binds the open cage. Lower = tighter binding."
 - K_open(OFF/ON): "The closed↔open balance of the latch. OFF = without target; ON = with target bound. Target binding should raise it."
 - Substitution policy: "Conservative (D→N, E→Q) removes charge while keeping shape and H-bonding. Neutralizing (D→A, E→A) replaces with alanine."
 
@@ -460,7 +460,7 @@ Loading: computations are sub-second, but show a subtle inline spinner on the Ca
 | Breakpoint | Layout |
 |------------|--------|
 | ≥ 1024px (desktop) | Two columns (input left, results right) as drawn |
-| 640–1023px (tablet) | Single column, stacked: inputs first, results below; plots full width |
+| 640-1023px (tablet) | Single column, stacked: inputs first, results below; plots full width |
 | < 640px (mobile) | Single column; Advanced panels collapsed by default; sequence ruler scrolls horizontally; plots switch to a compact aspect ratio; tab switcher becomes full-width |
 
 - The annotated sequence and ruler always scroll horizontally rather than wrapping, so position alignment is never broken.
@@ -471,11 +471,11 @@ Loading: computations are sub-second, but show a subtle inline spinner on the Ca
 ## 11. Accessibility
 
 - **Contrast:** all text meets WCAG AA on `--canvas`/`--surface`; brand-700 on white passes for large/medium text.
-- **Color independence:** liability bands and regimes always pair color with a text label and an icon — never color alone (covers colorblind users; the danger/brand red overlap is fine because text labels disambiguate).
+- **Color independence:** liability bands and regimes always pair color with a text label and an icon, never color alone (covers colorblind users; the danger/brand red overlap is fine because text labels disambiguate).
 - **Keyboard:** full tab order; Scan/Calculate reachable and Enter-submittable; sweep range handles operable by arrow keys; tooltips focusable.
 - **Screen readers:** inputs have `<label>`s and `aria-describedby` for help text; the verdict banner uses `role="status"` so the regime conclusion is announced after Calculate; plots have a text-summary fallback ("fold-change rises from 1× toward the lucKey/K_CK dominance ratio of 50 as [lucKey] increases").
 - **Focus visible:** the `--focus-ring` is never removed.
-- **Reduced motion:** respect `prefers-reduced-motion` — disable the input shake and plot transitions.
+- **Reduced motion:** respect `prefers-reduced-motion`, disable the input shake and plot transitions.
 
 ---
 
@@ -516,28 +516,28 @@ chain: { pipedKck: number|null, source: {label:string}|null }
 ui:    { activeTab: 'scanner'|'calculator' }   // synced to URL hash
 ```
 
-- No global server state, no persistence needed beyond the session. (Optional nicety: keep last inputs in memory so switching tabs doesn't clear them — do **not** use localStorage.)
+- No global server state, no persistence needed beyond the session. (Optional nicety: keep last inputs in memory so switching tabs doesn't clear them, do **not** use localStorage.)
 - Every compute call: set `status='loading'` → POST → set `result` + `status='done'`, or `status='error'` + toast.
 
 ---
 
 ## 13. Code Style & Authorial Voice
 
-The code should read like one person wrote it over a few weeks, not like it was generated. This matters for an iGEM software deliverable where judges read the repo — and it should just be *yours*. Conventions:
+The code should read like one person wrote it over a few weeks, not like it was generated. This matters for an iGEM software deliverable where judges read the repo, and it should just be *yours*. Conventions:
 
 ### Comments
-- **Comment the *why*, not the *what*.** Skip `// loop over residues` above a loop that obviously loops over residues. Do write `// D/E here tank K_CK — see the v1 binder; that's the whole reason this scan exists` where the reasoning isn't obvious from the code.
+- **Comment the *why*, not the *what*.** Skip `// loop over residues` above a loop that obviously loops over residues. Do write `// D/E here tank K_CK, see the v1 binder; that's the whole reason this scan exists` where the reasoning isn't obvious from the code.
 - **Don't comment every function.** Real codebases have stretches of uncommented, self-explanatory code and then a dense comment where something is genuinely tricky or non-obvious. Uniform docstrings on every single function is a tell.
 - **Let comments sound like you.** Short, occasionally informal, sometimes a little blunt ("this is gross but ProteinMPNN output is inconsistent so we parse defensively"). A reference to the actual project ("calibrated off the v1 vs optimized binder") reads human because it *is* specific to you.
 - **Leave real TODOs and notes-to-self.** `# TODO: recalibrate once BLI data is back` or `# NOTE: K_open defaults are placeholders until I confirm the eq` are honest and human. Don't sprinkle fake ones, but don't scrub the real ones either.
 - **No narration.** Avoid the AI tell of a comment restating the next line in English, or section-divider banners like `# ===== HELPER FUNCTIONS =====` on everything.
 
 ### Naming & structure
-- Consistent but not robotic. Real code has a couple of slightly-too-short names (`fc`, `kck`) next to careful ones — that's fine and normal in a domain where those are the actual symbols.
+- Consistent but not robotic. Real code has a couple of slightly-too-short names (`fc`, `kck`) next to careful ones, that's fine and normal in a domain where those are the actual symbols.
 - Don't over-abstract. Two similar functions are more human than one clever generic one with five flags. Refactor when it actually hurts, not preemptively.
 - Some functions are long because the logic is linear; don't shatter everything into tiny helpers just for symmetry.
 
-### What screams "AI-generated" — avoid
+### What screams "AI-generated", avoid
 - Every function having an identical, exhaustive docstring with `Args:`/`Returns:`/`Raises:` when the project doesn't otherwise warrant it.
 - Comments that explain language basics (`# increment counter by 1`).
 - Perfectly uniform spacing/structure across every file with zero personality.
@@ -545,17 +545,17 @@ The code should read like one person wrote it over a few weeks, not like it was 
 - Emoji in comments, or cheerful filler ("Now let's create the awesome results card! ✨").
 
 ### Practical
-- Write commits in your own voice too — `fix charge calc, termini were double-counted` not `Implement comprehensive charge calculation refactor`.
+- Write commits in your own voice too, `fix charge calc, termini were double-counted` not `Implement comprehensive charge calculation refactor`.
 - It's fine (good, even) to leave a commented-out approach you tried with a note on why it didn't work.
-- Keep a consistent personal style across the repo — pick tabs-or-spaces, quote style, etc. and stick to it, because *consistency within one author's voice* is itself what reads as human.
+- Keep a consistent personal style across the repo, pick tabs-or-spaces, quote style, etc. and stick to it, because *consistency within one author's voice* is itself what reads as human.
 
-> Apply this to the engine, backend, and frontend alike — the Python, the FastAPI routes, and the React components.
+> Apply this to the engine, backend, and frontend alike, the Python, the FastAPI routes, and the React components.
 
 ---
 
 ## Build order (UI)
 1. AppShell + tabs + design tokens (CSS variables from §1).
-2. Calculator first — it's smaller and proves the engine round-trip (params → verdict → plot).
+2. Calculator first, it's smaller and proves the engine round-trip (params → verdict → plot).
 3. Scanner single-sequence (input, live annotation, summary, variant).
 4. Scanner batch (uploader + table + export).
 5. The chain (ChainPill + context wiring).

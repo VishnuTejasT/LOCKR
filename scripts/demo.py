@@ -51,7 +51,7 @@ def regime_diagnosis():
 
 
 def liability_scan(label, sequence):
-    section(f"Liability scan -- {label}: {sequence}")
+    section(f"Liability scan, {label}: {sequence}")
     r = liability.scan_liability(sequence, preserve_positions=calibration.PFLDH_INTERFACE)
     flagged = [(l.position, l.residue) for l in r.liabilities]
     print(f"flagged liabilities  : {flagged}")

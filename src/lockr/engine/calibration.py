@@ -6,7 +6,7 @@ ECLIPSE's binder optimizations.
 from __future__ import annotations
 
 # Example only: ECLIPSE's PfLDH-contact positions (RFDiffusion design, 1-indexed).
-# Pass your own target-interface positions to scan_liability — this is not a default.
+# Pass your own target-interface positions to scan_liability, this is not a default.
 PFLDH_INTERFACE = [1, 2, 11, 12, 15]
 
 # Per-residue electrostatic penalty, calibrated on the two binders below.

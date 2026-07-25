@@ -29,7 +29,7 @@ class SensorParams:
 
     @property
     def luckey_ratio(self) -> float:
-        # lucKey/K_CK dominance ratio — a diagnostic, not an achievable fold-change.
+        # lucKey/K_CK dominance ratio, a diagnostic, not an achievable fold-change.
         return self.lucKey / self.K_CK
 
 
@@ -86,7 +86,7 @@ class ScanResult:
 class LodResult:
     """Detection-limit read from a target-concentration dose-response sweep.
 
-    All three fields are None when Kd isn't known -- the sensor's response
+    All three fields are None when Kd isn't known, the sensor's response
     doesn't depend on target concentration in the saturating case, so "how
     little target can it detect" isn't a meaningful question.
     """
@@ -148,6 +148,31 @@ class VariantSuggestion:
 
 
 @dataclass
+class GraftResult:
+    """Threading-scan result: every candidate position's score, and the winner."""
+
+    best_position: int
+    best_score: float
+    verdict: str
+    all_scores: list[tuple[int, float]]
+    grafted_sequence: str
+    grafted_pdb_path: str
+    binder_length: int
+    runtime_seconds: float
+
+
+@dataclass
+class GraftAtResult:
+    """Result of threading a binder into one specific position, no scan."""
+
+    position: int
+    score: float
+    verdict: str
+    grafted_sequence: str
+    grafted_pdb_path: str
+
+
+@dataclass
 class ProtectedRegion:
     """
     Basically, this is a segment of the latch that can NEVER be mutated, and the engine will make sure it isnt changed. An example of this is the SmBit Luciferase fragment in the ECLIPSE LOCKR system.
@@ -171,7 +196,7 @@ class GraftSpec:
     """One graft into a latch window.
 
     binder/start cover the single-binder case (ECLIPSE v1.0). spacer and
-    linker/binder2 are optional named segments for richer assemblies -- spacer
+    linker/binder2 are optional named segments for richer assemblies, spacer
     generalizes ECLIPSE's literal 'DA' gap between SmBiT and the binder;
     linker+binder2 generalizes the tandem v2.2 case. None of these values are
     assumed; they're just slots a caller fills in for their own assembly.

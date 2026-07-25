@@ -1,6 +1,6 @@
 """ECLIPSE validation: the engine reproduces my documented numbers exactly.
 
-My worked example/validation case, not a generalizable default — see
+My worked example/validation case, not a generalizable default, see
 lockr-tool-plan.md. Calls the same general functions as test_thermo_general.py.
 """
 
@@ -20,7 +20,7 @@ def test_max_fold_change_v10(pull, expected):
 
 @pytest.mark.parametrize("pull,expected", [(10, 11), (20, 21), (30, 31)])
 def test_max_fold_change_v22(pull, expected):
-    # Same max FC as v1.0 at each pull -- set by the cage, not by Kd.
+    # Same max FC as v1.0 at each pull, set by the cage, not by Kd.
     assert round(thermo.max_fold_change(KD_V22, pull)) == expected
 
 
@@ -80,7 +80,7 @@ def test_lod_v10_matches_documented_script7_numbers():
 
 def test_lod_v22_is_essentially_zero_binder_always_saturated():
     # v2.2's Kd is tight enough that the sensor saturates at ~any clinically
-    # relevant concentration -- LOD should come back tiny, not None/an error.
+    # relevant concentration, LOD should come back tiny, not None/an error.
     r = thermo.lod_and_ec50(KD_V22, pull=10)
     assert r.lod_2x < 1e-13
     assert r.ec50 < 1e-13

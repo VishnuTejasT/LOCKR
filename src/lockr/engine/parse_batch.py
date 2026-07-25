@@ -1,4 +1,4 @@
-"""Parse raw/FASTA/mixed sequence input -- Python port of scanner.js parseBatchInput.
+"""Parse raw/FASTA/mixed sequence input, Python port of scanner.js parseBatchInput.
 
 Returns (records, errors) where:
   records = [{"id": str, "sequence": str}]

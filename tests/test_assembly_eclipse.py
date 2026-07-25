@@ -1,6 +1,6 @@
 """ECLIPSE validation: my own Script 4 / Script 6 verification, generalized.
 
-Worked example/validation case -- see tests/test_assembly_general.py for the
+Worked example/validation case, see tests/test_assembly_general.py for the
 same functions exercised on synthetic data.
 """
 
@@ -36,7 +36,7 @@ def test_v10_binder_does_not_overlap_smbit():
 
 
 def test_v10_binder_fits_latch_with_documented_slack():
-    # Binder occupies 327-343 inside the 325-359 window -- 17 of 35 residues used.
+    # Binder occupies 327-343 inside the 325-359 window, 17 of 35 residues used.
     graft = GraftSpec(binder=BINDER, start=327)
     r = assembly.check_latch_fit(graft, LATCH)
     assert r.fits
@@ -56,8 +56,8 @@ def test_v22_tandem_fills_latch_with_zero_slack():
 
 
 def test_verify_full_assembly_reproduces_script6_six_checks_on_v10():
-    # v1.0 has no linker/binder2, so this naturally lands on six checks --
-    # length, SmBiT, overlap, fit, spacer ('DA'), binder1 -- mirroring Script 6
+    # v1.0 has no linker/binder2, so this naturally lands on six checks:
+    # length, SmBiT, overlap, fit, spacer ('DA'), binder1, mirroring Script 6
     # (length==359, SmBiT intact, spacer=='DA', binder1 correct) without
     # hardcoding 'DA' anywhere: it comes from graft_spec.spacer below.
     graft = GraftSpec(binder=BINDER, start=327, spacer="DA", spacer_start=323)
@@ -81,7 +81,7 @@ def test_real_eclipse_suggested_variants_never_overlap_smbit():
     # liability.suggest_variant works on the bare 17aa binder, so its mutation
     # positions are binder-local (1-17). Shift them to absolute assembly
     # coordinates (binder starts at 327) before checking against SmBiT
-    # (312-322) -- otherwise this test would pass for the wrong reason.
+    # (312-322), otherwise this test would pass for the wrong reason.
     v_local = liability.suggest_variant("LISDAELEAIFAEELDC",
                                         preserve_positions=calibration.PFLDH_INTERFACE,
                                         policy="neutralizing")

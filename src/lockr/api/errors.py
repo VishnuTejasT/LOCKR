@@ -19,6 +19,13 @@ def _envelope(code: str, message: str, field: str | None = None) -> dict:
     return {"error": {"code": code, "field": field, "message": message}}
 
 
+# Pydantic v2 prefixes a validator's raise ValueError(msg) with "Value error, "
+#, that's an implementation detail, not something a user should ever read.
+def _clean_pydantic_message(msg: str) -> str:
+    prefix = "Value error, "
+    return msg[len(prefix):] if msg.startswith(prefix) else msg
+
+
 def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(ApiError)
     async def _handle_api_error(request: Request, exc: ApiError):
@@ -29,8 +36,9 @@ def install_error_handlers(app: FastAPI) -> None:
     async def _handle_validation_error(request: Request, exc: RequestValidationError):
         first = exc.errors()[0]
         field = ".".join(str(p) for p in first["loc"] if p != "body")
+        message = _clean_pydantic_message(first["msg"])
         return JSONResponse(status_code=400,
-                            content=_envelope("VALIDATION_ERROR", first["msg"], field))
+                            content=_envelope("VALIDATION_ERROR", message, field))
 
     @app.exception_handler(Exception)
     async def _handle_unexpected(request: Request, exc: Exception):

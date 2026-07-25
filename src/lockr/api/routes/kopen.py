@@ -1,4 +1,4 @@
-"""POST /kopen-scenarios -- the latch-tuning what-if grid behind the Assembly
+"""POST /kopen-scenarios, the latch-tuning what-if grid behind the Assembly
 tab's K_open Tuning Analysis section. All the arithmetic is thermo.py's
 (k_open_from_destab, max_fold_change, diagnose_regime); this route is just the
 preset x mutation-count loop and the nM boundary conversion, same pattern as
@@ -19,10 +19,10 @@ from ..schemas.kopen import KopenScenario, KopenScenariosRequest, KopenScenarios
 
 router = APIRouter()
 
-_UNDEFINED_RESULT_MESSAGE = "Parameters produce an undefined result — check K_open and K_CK."
+_UNDEFINED_RESULT_MESSAGE = "Parameters produce an undefined result, check K_open and K_CK."
 _NM_TO_M = 1e-9
 
-# 0.5 / 1.0 / 1.5 kcal/mol per mutation -- Langan 2019 + my own v1.1 analysis.
+# 0.5 / 1.0 / 1.5 kcal/mol per mutation, Langan 2019 + my own v1.1 analysis.
 _PRESETS = {"conservative": 0.5, "moderate": 1.0, "optimistic": 1.5}
 _HELPS_THRESHOLD = 0.05
 

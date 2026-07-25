@@ -124,7 +124,7 @@ def test_filter_safe_variants_rejects_substitution_inside_protected_region():
 
 
 def test_filter_safe_variants_uses_absolute_position_not_local_position():
-    # Local position 12 lands inside this region (10-14) by coincidence -- if
+    # Local position 12 lands inside this region (10-14) by coincidence, if
     # filter_safe_variants (or a caller feeding it) skipped the local->absolute
     # offset, this would get wrongly rejected. The binder actually starts at
     # absolute position 30, so position 12 is local-only; the true absolute
@@ -140,7 +140,7 @@ def test_filter_safe_variants_uses_absolute_position_not_local_position():
     naive = assembly.filter_safe_variants([v_local], region)
     assert naive.rejected and naive.rejected[0][0] is v_local
 
-    # Once shifted to the binder's real absolute coordinates, it's accepted --
+    # Once shifted to the binder's real absolute coordinates, it's accepted:
     # proving the offset, not the coincidence, is what determines the outcome.
     abs_mutations = [f"{m[0]}{int(m[1:-1]) + offset}{m[-1]}" for m in v_local.mutations]
     v_abs = dataclasses.replace(v_local, mutations=abs_mutations)

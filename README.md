@@ -23,7 +23,7 @@ conda activate igem
 lockr --help          # top-level help
 ```
 
-### Option 1 — web app (recommended)
+### Option 1, web app (recommended)
 
 ```bash
 lockr serve
@@ -31,9 +31,9 @@ lockr serve
 
 It should provide a local link for you to paste into your browser to get started!
 
-### Option 2 — command line
+### Option 2, command line
 
-Scan a binder for cage–key liabilities:
+Scan a binder for cage-key liabilities:
 
 ```bash
 lockr scan SEQUENCE

@@ -14,7 +14,6 @@
     <nav class="tabs">
       <button data-tab="scanner">Scanner</button>
       <button data-tab="calculator">Calculator</button>
-      <button data-tab="assembly">Assembly Check</button>
     </nav>
   </div>
 </header>
@@ -24,7 +23,8 @@
   <section class="tab-panel" data-tab="scanner">
     <div class="screen-header">
       <h1>Charge &amp; Liability Scanner</h1>
-      <p>Use this section to verify whether a binder sequence is likely to be problematic to K-CK affinity through amino acid charge identification.</p>
+      <p>Use this section to verify whether a binder sequence is likely to be problematic to K-CK affinity through amino acid charge identification. This is normally step one: scan a sequence here, then send its estimated K_CK to the Calculator tab to see what fold-change you'd actually get.</p>
+      <p class="help-text">If you paste a full lucCage sequence (not just a short binder), this also automatically double-checks in the background that the built-in luciferase piece is intact and your sequence is a complete, known length. You'll only see a note appear here if something looks off; otherwise there's nothing to do.</p>
     </div>
 
     <div class="two-col">
@@ -51,17 +51,22 @@
                   <span id="scan-decount">0 D/E</span>
                   <span id="scan-netcharge-live">net charge (rough) ~0</span>
                 </div>
-                <div id="scan-longseq-warning" class="help-text" style="display:none; color: var(--warning-700);">long sequence — liability model tuned for peptide-scale binders</div>
+                <div id="scan-longseq-warning" class="help-text" style="display:none; color: var(--warning-700);">long sequence: liability model tuned for peptide-scale binders</div>
                 <div class="field-error" id="scan-sequence-error"></div>
               </div>
+            </div>
+
+            <div id="scan-bg-warning" class="field-row" style="display:none;">
+              <div id="scan-bg-warning-text" class="help-text" style="color: var(--warning-700); font-weight:500;"></div>
             </div>
 
             <div id="scan-batch-input" style="display:none;">
               <div class="field-row">
                 <label>Sequences</label>
                 <div id="scan-batch-dropzone" class="batch-dropzone">
-                  <textarea id="scan-batch-text" class="font-mono" rows="8" placeholder="Paste sequences (one per line), FASTA, or mixed — or drag &amp; drop a file here.&#10;&#10;Example:&#10;&gt;binder_v1&#10;LISDAELEAIFAEELDC&#10;LISAAALAAIFAAALAC"></textarea>
+                  <textarea id="scan-batch-text" class="font-mono" rows="8" placeholder="Paste sequences (one per line), FASTA, or mixed, or drag &amp; drop a file here.&#10;&#10;Example:&#10;&gt;binder_v1&#10;LISDAELEAIFAEELDC&#10;LISAAALAAIFAAALAC"></textarea>
                 </div>
+                <div class="help-text" style="margin-top:6px; color: var(--warning-700);">Batch mode can't protect specific residues: it treats every sequence as fully sensitive with no preserve positions. If any of your binders have residues that must stay unchanged for target binding, scan them one at a time in Single mode instead.</div>
                 <div class="seq-footer help-text" style="margin-top:6px;">
                   <span id="scan-batch-count">0 sequences</span>
                   <button type="button" id="scan-batch-upload-btn" class="btn-ghost" style="height:28px; padding:0 10px; font-size:13px; margin-left:auto;">Upload file</button>
@@ -76,11 +81,11 @@
               <summary>Advanced</summary>
               <div class="card">
                 <div class="field-row">
-                  <label for="scan-ph">pH</label>
+                  <label for="scan-ph">pH<span class="help-tip" tabindex="0">?<span class="help-tip-body">The pH the net charge is computed at. 7.4 is physiological pH (roughly what a cell or standard assay buffer sits at), and it changes how protonated the acidic (D/E) and basic (K/R/H) side chains are, which is what the charge and liability numbers are actually built from.</span></span></label>
                   <input id="scan-ph" type="number" step="0.1" min="0" max="14" value="7.4">
                 </div>
                 <div class="field-row" id="scan-adv-window-row">
-                  <label>Sensitive window</label>
+                  <label>Sensitive window<span class="help-tip" tabindex="0">?<span class="help-tip-body">The residue range that counts toward the liability score, usually wherever your binder sits in the latch/graft region. Acidic residues outside this window are still shown in the annotated sequence, they just don't add to the score or get changed by Suggest.</span></span></label>
                   <div style="display:flex; align-items:center; gap:8px;">
                     <input id="scan-window-start" type="number" min="1" value="1" style="width:90px;">
                     <span class="help-text">to</span>
@@ -122,6 +127,7 @@
           <div class="card">
             <div class="font-display" id="scan-band-label" style="font-size:32px;"></div>
             <div class="liability-gauge"><div class="liability-gauge-marker" id="scan-gauge-marker"></div></div>
+            <div class="help-text" style="margin-top:4px;">Liability score: <span class="font-mono" id="scan-liability-score"></span> / 100 (0 = clean, 100 = maximally flagged)</div>
             <div class="help-text" style="margin-top:12px;">
               Net charge (pH <span id="scan-result-ph"></span>): <span class="font-mono" id="scan-net-charge"></span>
             </div>
@@ -134,6 +140,7 @@
 
           <div class="card">
             <h2 class="font-display" style="font-size:22px;">Annotated sequence</h2>
+            <div class="help-text" style="margin-bottom:8px;"><span class="res-acidic">acidic (D/E)</span> &middot; <span class="res-basic">basic (K/R/H)</span> &middot; <span class="res-muted">neutral</span> &middot; underline = flagged (in window, counted in the score)</div>
             <div class="seq-scroll">
               <div id="scan-annotated" class="seq-residues"></div>
               <div id="scan-annotated-ruler" class="seq-ruler"></div>
@@ -142,12 +149,13 @@
 
           <div class="card">
             <h2 class="font-display" style="font-size:22px;">Per-position contribution</h2>
+            <div class="help-text" style="margin-bottom:8px;">Each tile is one residue. Dark tiles are flagged acidic residues costing K_CK; hover a tile for its exact penalty in kcal/mol.</div>
             <div id="scan-contribution-chart"></div>
           </div>
 
           <div class="card">
             <h2 class="font-display" style="font-size:22px;">Suggested variant</h2>
-            <div id="scan-variant-none" class="help-text" style="display:none; margin-top:8px;">No liabilities found — no variant needed.</div>
+            <div id="scan-variant-none" class="help-text" style="display:none; margin-top:8px;">No liabilities found, no variant needed.</div>
             <div id="scan-variant-boxes" style="display:none; align-items:center; gap:12px; margin-top:12px; flex-wrap:wrap;">
               <div class="variant-seq-box variant-seq-box--old">
                 <div class="variant-seq-box-label">Original</div>
@@ -171,30 +179,86 @@
 
           <div class="card">
             <h2 class="font-display" style="font-size:22px;">K_CK Estimates</h2>
+            <div class="help-text" style="margin-top:4px;">Lower = tighter cage-key binding = better. These are estimates from a simple model calibrated on just two known binders. Treat them as directional, especially if a value lands far outside the typical 1-100 nM range (that usually just means "this sequence probably won't bind well," not a precise number).</div>
             <div style="display:flex; align-items:center; gap:12px; margin-top:12px; flex-wrap:wrap;">
               <div class="variant-seq-box variant-seq-box--old">
                 <div class="variant-seq-box-label">Original Interaction</div>
-                <div id="scan-kck-estimate" class="seq-residues font-mono">—</div>
+                <div id="scan-kck-estimate" class="seq-residues font-mono">N/A</div>
               </div>
               <div class="variant-arrow">→</div>
               <div class="variant-seq-box variant-seq-box--new">
                 <div class="variant-seq-box-label">Variant Interaction</div>
-                <div id="scan-variant-kck-estimate" class="seq-residues font-mono">—</div>
+                <div id="scan-variant-kck-estimate" class="seq-residues font-mono">N/A</div>
               </div>
             </div>
             <div class="help-text" style="margin-top:8px;">
-              In nanomolar (nM): <span class="font-mono" id="scan-kck-estimate-nm">—</span> → <span class="font-mono" id="scan-variant-kck-estimate-nm">—</span>
+              In nanomolar (nM): <span class="font-mono" id="scan-kck-estimate-nm">N/A</span> → <span class="font-mono" id="scan-variant-kck-estimate-nm">N/A</span>
             </div>
             <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
               <button type="button" id="scan-kck-send-btn" class="btn-secondary" style="height:28px; padding:0 10px; font-size:13px; display:none;">→ Send K_CK to Calculator</button>
               <button type="button" id="scan-variant-kck-send-btn" class="btn-secondary" style="height:28px; padding:0 10px; font-size:13px; display:none;">→ Send Variant K_CK to Calculator</button>
             </div>
           </div>
+
+          <div class="card">
+            <h2 class="font-display" style="font-size:22px;">Step 2: Graft into lucCage</h2>
+            <p class="help-text" style="margin-top:4px;">Thread your (optimized) binder sequence into the lucCage latch and find the best position.</p>
+
+            <div id="graft-using-label" class="help-text font-mono" style="margin-top:12px;"></div>
+
+            <div id="graft-unavailable-note" class="help-text" style="display:none; margin-top:8px; color:var(--warning-700);">Grafting requires PyRosetta, see the Install Guide for setup.</div>
+
+            <details class="advanced" style="margin-top:8px;">
+              <summary>Scan specific position</summary>
+              <div class="card">
+                <div class="field-row" style="margin-bottom:0;">
+                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    <input type="checkbox" id="graft-specific-cb" style="width:auto; height:auto; cursor:pointer;">
+                    Try one specific latch position instead of scanning all of them
+                  </label>
+                  <input id="graft-specific-position" type="number" min="325" max="359" placeholder="e.g. 327" style="max-width:140px; margin-top:8px; display:none;">
+                </div>
+              </div>
+            </details>
+
+            <div style="margin-top:16px;">
+              <button type="button" id="graft-submit" class="btn-primary" disabled>Graft binder into lucCage</button>
+            </div>
+
+            <div id="graft-progress" style="display:none; margin-top:16px;">
+              <div class="help-text">Grafting in progress&hellip; (this takes 1-2 minutes)</div>
+              <div class="graft-progress-track"><div class="graft-progress-fill"></div></div>
+            </div>
+
+            <div id="graft-error" class="field-error" style="display:none; margin-top:12px;"></div>
+
+            <div id="graft-results" style="display:none; margin-top:16px;">
+              <div class="help-text">Best position: <span class="font-mono" id="graft-best-position"></span></div>
+              <div style="display:flex; align-items:baseline; gap:10px; margin-top:6px; flex-wrap:wrap;">
+                <span class="font-mono" id="graft-best-score" style="font-size:18px; font-weight:600;"></span>
+                <span class="badge" id="graft-verdict-badge"></span>
+              </div>
+              <div id="graft-poor-note" class="help-text" style="display:none; margin-top:8px; color:var(--warning-700);">Poor Rosetta score suggests this binder may not fit the latch well. Consider reviewing the charge-optimized variant or trying a different binder length.</div>
+
+              <div id="graft-score-chart" style="margin-top:16px;"></div>
+
+              <div class="help-text" style="margin-top:16px; font-weight:500;">Full grafted lucCage sequence</div>
+              <div class="seq-scroll" style="margin-top:6px;">
+                <div id="graft-sequence-display" class="seq-residues font-mono"></div>
+              </div>
+              <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+                <button type="button" id="graft-copy-btn" class="btn-secondary" style="height:28px; padding:0 10px; font-size:13px;">Copy sequence</button>
+                <button type="button" id="graft-validate-btn" class="btn-secondary" style="height:28px; padding:0 10px; font-size:13px;">→ Validate</button>
+                <button type="button" id="graft-download-btn" class="btn-secondary" style="height:28px; padding:0 10px; font-size:13px;">Download grafted PDB</button>
+                <button type="button" id="graft-kck-send-btn" class="btn-secondary" style="height:28px; padding:0 10px; font-size:13px; display:none;">→ Send K_CK to Calculator</button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div id="scan-batch-results" style="display:none;">
           <div id="scan-batch-best-strip" class="batch-best-strip" style="display:none;">
-            <div>Best candidate: <strong id="scan-batch-best-id"></strong> — score <span id="scan-batch-best-score"></span> <span id="scan-batch-best-badge" class="badge"></span></div>
+            <div>Best candidate: <strong id="scan-batch-best-id"></strong>, score <span id="scan-batch-best-score"></span> <span id="scan-batch-best-badge" class="badge"></span></div>
             <div style="display:flex; gap:8px; flex-shrink:0; flex-wrap:wrap;">
               <button type="button" id="scan-batch-chain-orig" class="btn-secondary" style="height:28px; padding:0 10px; font-size:13px;">→ Send original K_CK</button>
               <button type="button" id="scan-batch-chain-variant" class="btn-secondary" style="height:28px; padding:0 10px; font-size:13px;">→ Send variant K_CK</button>
@@ -222,7 +286,7 @@
   <section class="tab-panel" data-tab="calculator">
     <div class="screen-header">
       <h1>Fold-Change Calculator</h1>
-      <p>This calculator will predict how much brighter the LOCKR system will get when its target is present, while also providing insights on how to improve it.</p>
+      <p>This calculator will predict how much brighter the LOCKR system will get when its target is present, while also providing insights on how to improve it. If you haven't measured K_CK yet, run a sequence through the Scanner tab first and send its estimate here.</p>
     </div>
 
     <div class="two-col">
@@ -239,17 +303,17 @@
         </div>
 
         <details class="glossary">
-          <summary>Read this first if you're new to these terms!!!</summary>
+          <summary>New to these terms? Read this first.</summary>
           <dl>
             <dt>Fold-change</dt>
-            <dd>The whole point of the sensor: signal <em>with</em> target ÷ signal <em>without</em> target. 1× means no response; 10–50×+ is a strong, easy-to-read sensor.</dd>
-            <dt>K_CK <span class="gloss-unit">— nM, cage–key affinity</span></dt>
+            <dd>The whole point of the sensor: signal <em>with</em> target ÷ signal <em>without</em> target. 1× means no response; 10-50×+ is a strong, easy-to-read sensor.</dd>
+            <dt>K_CK <span class="gloss-unit">,  nM, cage-key affinity</span></dt>
             <dd>This is how tightly the key attaches to the cage. <b>The lower the value, the tighter the binding, and the brighter the signal</b> This can be obtained fromt he scanner tab in this tool!</dd>
-            <dt>K_open <span class="gloss-unit">— Cage-Looseness</span></dt>
+            <dt>K_open <span class="gloss-unit">,  Cage-Looseness</span></dt>
             <dd>This is how often the cage's latch opens on its own, when the stimuli is not present. ~0.001 means it's shut 99.9% of the time (low background noise).</dd>
-            <dt>Pull strength <span class="gloss-unit">— no units</span></dt>
+            <dt>Pull strength <span class="gloss-unit">,  no units</span></dt>
             <dd>This is how much the target binding will open the cage. Pull = 10 means target makes the cage ~10× more likely to open, while Pull = 1 means there won't be <b>any</b> change to the cage's ability to open. Fit this from a wet-lab titration.</dd>
-            <dt>lucKey <span class="gloss-unit">— nM, the key's concentration</span></dt>
+            <dt>lucKey <span class="gloss-unit">,  nM, the key's concentration</span></dt>
             <dd>This is a choice for the experimenter. The more key there is, the more signal you'll get, but there is a limiting factor at play.</dd>
             <dt>What limits it?</dt>
             <dd>This calculator will tell you whether the <em>key side</em> (lucKey / K_CK) or the <em>cage side</em> (K_open) is interfering with fold-change abilities, so you know which variable to modify.</dd>
@@ -259,25 +323,75 @@
         <div class="card">
           <form id="calc-form">
             <div class="field-row">
-              <label for="calc-kck">Cage–key affinity, K_CK <span class="unit-suffix">nM</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">How tightly the reporter key grabs the open cage. <b>Lower = tighter = brighter signal.</b> Typical 1–100 nM. Get it from the <b>Scanner</b> tab or a binding measurement.</span></span> <span id="calc-kck-pill" class="pill-chain" style="display:none;"></span></label>
-              <input id="calc-kck" data-calc-field="k_ck" type="number" step="any" value="10" min="0" placeholder="e.g. 10 — or send from Scanner">
+              <label for="calc-kck">Cage-key affinity, K_CK <span class="unit-suffix">nM</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">How tightly the reporter key grabs the open cage. <b>Lower = tighter = brighter signal.</b> Typical 1-100 nM. Get it from a binding measurement, or a rough estimate from the <b>Scanner</b> tab. Scanner estimates are calibrated on just two known binders, so treat values far outside 1-100 nM as "this binder probably won't work" rather than a precise number.</span></span> <span id="calc-kck-pill" class="pill-chain" style="display:none;"></span></label>
+              <input id="calc-kck" data-calc-field="k_ck" type="number" step="any" value="10" min="0" placeholder="e.g. 10, or send from Scanner">
               <div class="field-error" data-calc-error="k_ck"></div>
             </div>
             <div class="field-row">
-              <label for="calc-kopen">Cage looseness, K_open <span class="unit-suffix">—</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">Chance the cage pops open on its own with no target. <b>~0.001 = shut 99.9% of the time</b> (low background). Lower = tighter cage. From literature or a BLI measurement.</span></span></label>
+              <label for="calc-kopen">Cage looseness, K_open <span class="unit-suffix">unitless</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">Chance the cage pops open on its own with no target. <b>~0.001 = shut 99.9% of the time</b> (low background). Lower = tighter cage. From literature or a BLI measurement.</span></span> <span id="calc-kopen-pill" class="pill-chain" style="display:none;"></span></label>
               <input id="calc-kopen" data-calc-field="k_open" type="number" step="any" value="0.001" min="0" placeholder="e.g. 0.001">
               <div class="field-error" data-calc-error="k_open"></div>
+              <button type="button" id="calc-kopen-estimator-toggle" class="btn-ghost" style="height:auto; padding:0; font-size:13px; color:var(--brand-700); margin-top:4px;">How do I get K_open?</button>
+
+              <div id="calc-kopen-estimator" class="card" style="display:none; margin-top:12px; background:var(--surface-alt); box-shadow:none;">
+
+                <div style="margin-bottom:16px;">
+                  <h3 style="font-size:15px; margin-bottom:4px;">Path 1, Unmodified lucCage scaffold</h3>
+                  <button type="button" id="calc-kopen-path1-use" class="btn-secondary" style="height:32px; padding:0 12px; font-size:13px;">Use base lucCage value (K_open = 0.001)</button>
+                  <div class="help-text" style="margin-top:6px;">Measured in vitro for the base lucCage scaffold (Quijano-Rubio et al. 2021). Use this if you haven't modified the latch length or introduced latch-destabilizing mutations.</div>
+                </div>
+
+                <div style="margin-bottom:16px; padding-top:16px; border-top:1px solid var(--border);">
+                  <h3 style="font-size:15px; margin-bottom:8px;">Path 2, I've made latch modifications</h3>
+
+                  <div class="field-row" style="margin-bottom:10px;">
+                    <label for="calc-kopen-est-start" style="font-size:13px; margin-bottom:2px;">Starting K_open</label>
+                    <input id="calc-kopen-est-start" type="number" step="any" min="0" value="0.001">
+                  </div>
+                  <div class="field-row" style="margin-bottom:10px;">
+                    <label for="calc-kopen-est-nmut" style="font-size:13px; margin-bottom:2px;">Number of I→S or V→S mutations</label>
+                    <input id="calc-kopen-est-nmut" type="number" step="1" min="0" value="0">
+                  </div>
+                  <div class="field-row" style="margin-bottom:10px;">
+                    <label style="font-size:13px; margin-bottom:2px;">Destabilization per mutation</label>
+                    <div class="segmented" id="calc-kopen-est-destab-segmented">
+                      <button type="button" data-destab="conservative">Conservative (0.5 kcal/mol)</button>
+                      <button type="button" data-destab="moderate" class="active">Moderate (1.0 kcal/mol)</button>
+                      <button type="button" data-destab="optimistic">Optimistic (1.5 kcal/mol)</button>
+                    </div>
+                  </div>
+                  <div class="field-row" style="margin-bottom:10px;">
+                    <label for="calc-kopen-est-length" style="font-size:13px; margin-bottom:2px;">Latch length change <span class="unit-suffix">residues, +/-</span></label>
+                    <input id="calc-kopen-est-length" type="number" step="1" value="0">
+                    <div class="help-text">Relative to the base 35-residue latch. Each added residue costs ~0.15 kcal/mol of stability; each removed residue gives that back.</div>
+                  </div>
+
+                  <div class="help-text font-mono" id="calc-kopen-est-result" style="font-size:14px; color:var(--text); margin-top:8px;">Estimated K_open = N/A</div>
+                  <div id="calc-kopen-est-warning" class="help-text" style="display:none; color:var(--warning-700); margin-top:4px;"></div>
+                  <div class="help-text" style="margin-top:4px;">This is an estimate based on published destabilization energetics (Langan 2019). Actual K_open may vary by 2-5× depending on your specific latch geometry.</div>
+                  <button type="button" id="calc-kopen-path2-use" class="btn-secondary" style="height:32px; padding:0 12px; font-size:13px; margin-top:10px;">Use this value</button>
+                </div>
+
+                <div style="padding-top:16px; border-top:1px solid var(--border);">
+                  <h3 style="font-size:15px; margin-bottom:8px;">Path 3, Similar to a published LOCKR variant</h3>
+                  <div style="overflow-x:auto;">
+                    <table class="batch-table" id="calc-kopen-path3-table"></table>
+                  </div>
+                  <div class="help-text" style="margin-top:8px;">Sources: Langan et al. Nature 572, 205-210 (2019); Quijano-Rubio et al. Nature 591, 482-487 (2021).</div>
+                </div>
+
+              </div>
             </div>
             <div class="field-row">
-              <label for="calc-pull">Pull strength <span class="unit-suffix">—</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">How much target binding pries the cage open. <b>Pull = 10 → target makes the cage ~10× more likely to open.</b> Can't be computed — fit it from a wet-lab luminescence titration. Typical 10–30.</span></span></label>
+              <label for="calc-pull">Pull strength <span class="unit-suffix">unitless</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">How much target binding pries the cage open. <b>Pull = 10 → target makes the cage ~10× more likely to open.</b> Can't be computed, fit it from a wet-lab luminescence titration. Typical 10-30.</span></span></label>
               <input id="calc-pull" data-calc-field="pull" type="number" step="any" value="10" min="0" placeholder="e.g. 10">
               <div class="field-error" data-calc-error="pull"></div>
               <div class="help-text">This is the one value you can't predict, so you need to fit it from wet-lab luminescence data.</div>
-              <div id="calc-pull-warning" class="help-text" style="display:none; color: var(--warning-700);">A pull above 50 has no documented precedent — double-check your units.</div>
-              <div class="help-text font-mono" id="calc-kopen-eff-derived">With target bound, the cage opens ~— × more readily</div>
+              <div id="calc-pull-warning" class="help-text" style="display:none; color: var(--warning-700);">A pull above 50 has no documented precedent, double-check your units.</div>
+              <div class="help-text font-mono" id="calc-kopen-eff-derived">With target bound, the cage opens ~,  × more readily</div>
             </div>
             <div class="field-row">
-              <label for="calc-luckey">Reporter key dose, lucKey <span class="unit-suffix">nM</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">How much reporter key you add to the assay — <b>your choice as the experimenter.</b> More key drives more signal, up to a point. Typical 100–1000 nM.</span></span></label>
+              <label for="calc-luckey">Reporter key dose, lucKey <span class="unit-suffix">nM</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">How much reporter key you add to the assay. <b>Your choice as the experimenter.</b> More key drives more signal, up to a point. Typical 100-1000 nM.</span></span></label>
               <input id="calc-luckey" data-calc-field="luckey" type="number" step="any" value="500" min="0" placeholder="e.g. 500">
               <div class="field-error" data-calc-error="luckey"></div>
             </div>
@@ -285,9 +399,9 @@
             <details class="advanced">
               <summary>Advanced: target concentration (optional)</summary>
               <div class="card">
-                <div class="help-text" style="margin-bottom:12px;">Leave this whole section blank to assume the target is fully present (best-case response). Fill it in to predict the signal at a specific, real target concentration.</div>
+                <div class="help-text" style="margin-bottom:12px;">Leave this whole section blank to assume the target is fully present (best-case response). To predict the signal at a specific, real target concentration, fill in <b>both</b> the affinity below <b>and</b> "Target present in sample" further down. The calculator needs both together, not just one.</div>
                 <div class="field-row" style="margin-bottom:12px;">
-                  <label style="margin-bottom:6px;">Enter binder–target affinity as<span class="help-tip" tabindex="0">?<span class="help-tip-body">How tightly your binder grabs the target you're detecting. Enter it as a <b>Kd</b> (nM) or as a docking <b>ΔG</b> (kcal/mol) if that's what you have.</span></span></label>
+                  <label style="margin-bottom:6px;">Enter binder-target affinity as<span class="help-tip" tabindex="0">?<span class="help-tip-body">How tightly your binder grabs the target you're detecting. Enter it as a <b>Kd</b> (nM) or as a docking <b>ΔG</b> (kcal/mol) if that's what you have.</span></span></label>
                   <div class="segmented" id="calc-ktarget-mode-seg">
                     <button type="button" data-kmode="kd" class="active">Kd (nM)</button>
                     <button type="button" data-kmode="dg">dG (kcal/mol)</button>
@@ -296,7 +410,7 @@
 
                 <div id="calc-ktarget-kd-panel">
                   <div class="field-row">
-                    <label for="calc-ktarget">Binder–target affinity, K_target <span class="unit-suffix">nM</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">Lower = your binder holds the target more tightly. From docking (e.g. ADCP) or a binding measurement.</span></span></label>
+                    <label for="calc-ktarget">Binder-target affinity, K_target <span class="unit-suffix">nM</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">Lower = your binder holds the target more tightly. From docking (e.g. ADCP) or a binding measurement. <b>You must also fill in "Target present in sample" below</b>, this field alone isn't enough to calculate anything.</span></span></label>
                     <input id="calc-ktarget" data-calc-field="k_target" type="number" step="any" placeholder="e.g. 50">
                     <div class="field-error" data-calc-error="k_target"></div>
                   </div>
@@ -323,8 +437,8 @@
                     </div>
                   </details>
                   <div id="calc-dg-derived-row" style="display:none;">
-                    <div class="font-mono" style="font-size:13px;" id="calc-dg-derived">Computed K_target = —</div>
-                    <div id="calc-dg-no-anchor-warn" class="help-text" style="color:var(--warning-700); margin-top:4px; display:none;">Rough estimate only — no anchor supplied. May be off by orders of magnitude; treat as directional.</div>
+                    <div class="font-mono" style="font-size:13px;" id="calc-dg-derived">Computed K_target = N/A</div>
+                    <div id="calc-dg-no-anchor-warn" class="help-text" style="color:var(--warning-700); margin-top:4px; display:none;">Rough estimate only, no anchor supplied. May be off by orders of magnitude; treat as directional.</div>
                   </div>
                 </div>
 
@@ -335,7 +449,7 @@
                   <div class="help-text">Leave both this and the affinity blank to assume the target is fully saturating (best case).</div>
                 </div>
                 <div class="field-row" style="margin-top:12px;">
-                  <label for="calc-clinical-threshold">Clinical detection target <span class="unit-suffix">nM</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">The minimum target concentration your sensor needs to detect for your application — not computed, look this up for your specific target.</span></span></label>
+                  <label for="calc-clinical-threshold">Clinical detection target <span class="unit-suffix">nM</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">The minimum target concentration your sensor needs to detect for your application, not computed, look this up for your specific target.</span></span></label>
                   <input id="calc-clinical-threshold" type="number" step="any" min="0" placeholder="e.g. 2 for PfLDH active infection">
                 </div>
               </div>
@@ -361,38 +475,42 @@
         <div id="calc-results" style="display:none;">
           <div class="card">
             <div class="result-readout">
-              <div class="hero-fc" id="calc-hero-fc">—</div>
+              <div class="hero-fc" id="calc-hero-fc">N/A</div>
               <span class="result-quality" id="calc-quality"></span>
             </div>
             <div class="result-interpretation" id="calc-interpretation"></div>
             <div class="result-metrics">
               <div class="result-metric">
                 <span class="rm-label">Best case (saturating target)<span class="help-tip" tabindex="0">?<span class="help-tip-body">This is the maximum fold-change that can be achieved if the target is fully present.</span></span></span>
-                <span class="rm-value" id="calc-metric-max">—</span>
+                <span class="rm-value" id="calc-metric-max">N/A</span>
               </div>
               <div class="result-metric">
-                <span class="rm-label">Key vs cage ratio<span class="help-tip" tabindex="0">?<span class="help-tip-body">This is how hard the key competes to hold the cage open when the latch unfolds initially. </span></span></span>
-                <span class="rm-value" id="calc-metric-ratio">—</span>
+                <span class="rm-label">lucKey/K_CK ratio<span class="help-tip" tabindex="0">?<span class="help-tip-body">Not a fold-change target, it's a diagnostic. When your fold-change is close to this number, you're key-limited and tuning the latch (K_open) won't help; raising lucKey or lowering K_CK will. See the regime banner below for which one you're in.</span></span></span>
+                <span class="rm-value" id="calc-metric-ratio">N/A</span>
+              </div>
+              <div class="result-metric">
+                <span class="rm-label">% of that ratio<span class="help-tip" tabindex="0">?<span class="help-tip-body">How close your current fold-change is to the lucKey/K_CK ratio above. Closer to 100% means you're deep in the key-limited regime.</span></span></span>
+                <span class="rm-value" id="calc-metric-fraction">N/A</span>
               </div>
               <div class="result-metric">
                 <span class="rm-label">LOD (2× signal)<span class="help-tip" tabindex="0">?<span class="help-tip-body">The lowest target concentration that still gives at least a 2× signal jump over background.</span></span></span>
-                <span class="rm-value" id="calc-metric-lod2">—</span>
+                <span class="rm-value" id="calc-metric-lod2">N/A</span>
               </div>
               <div class="result-metric">
                 <span class="rm-label">LOD (3× signal)<span class="help-tip" tabindex="0">?<span class="help-tip-body">The lowest target concentration that still gives at least a 3× signal jump over background.</span></span></span>
-                <span class="rm-value" id="calc-metric-lod3">—</span>
+                <span class="rm-value" id="calc-metric-lod3">N/A</span>
               </div>
               <div class="result-metric">
                 <span class="rm-label">EC50<span class="help-tip" tabindex="0">?<span class="help-tip-body">The target concentration halfway between no signal and this design's maximum signal.</span></span></span>
-                <span class="rm-value" id="calc-metric-ec50">—</span>
+                <span class="rm-value" id="calc-metric-ec50">N/A</span>
               </div>
               <div class="result-metric">
-                <span class="rm-label">Clinical threshold</span>
-                <span class="rm-value" id="calc-metric-threshold">—</span>
+                <span class="rm-label">Clinical threshold<span class="help-tip" tabindex="0">?<span class="help-tip-body">The value you typed into "Clinical detection target" above, echoed back here so it's next to the numbers it's being compared against.</span></span></span>
+                <span class="rm-value" id="calc-metric-threshold">N/A</span>
               </div>
               <div class="result-metric">
-                <span class="rm-label">Beats cutoff</span>
-                <span class="rm-value" id="calc-metric-beats">—</span>
+                <span class="rm-label">Beats cutoff<span class="help-tip" tabindex="0">?<span class="help-tip-body">Whether this design's LOD (2× signal) is at or below your clinical threshold, meaning it can detect down to the concentration your application actually needs.</span></span></span>
+                <span class="rm-value" id="calc-metric-beats">N/A</span>
               </div>
             </div>
             <div id="calc-lod-note" class="help-text" style="display:none;"></div>
@@ -421,168 +539,27 @@
             <h2 class="font-display" style="font-size:22px;">What to try next</h2>
             <ul class="recommendations" id="calc-recommendations"></ul>
           </div>
-        </div>
-      </div>
-    </div>
-  </section>
 
-  <section class="tab-panel" data-tab="assembly">
-    <div class="screen-header">
-      <h1>Assembly Check</h1>
-      <p>Use this tool to verify that you LOCKR system's sequence is correct,a dn that the binder, protected region, and overall latch are secure and in the current position.</p>
-    </div>
-
-    <div class="two-col">
-      <div>
-        <div class="card">
-          <form id="asm-form">
-
-            <div class="field-row">
-              <label for="asm-sequence">Full sequence</label>
-              <div class="seq-scroll">
-                <textarea id="asm-sequence" class="font-mono" rows="5" placeholder="Paste your LOCRK sequence (standard amino acids without Tags)"></textarea>
-              </div>
-              <div class="field-error" id="asm-sequence-error"></div>
-            </div>
-
-            <div class="field-row">
-              <label>Graftable latch window</label>
-              <div class="help-text" style="margin-bottom:6px;">This is the part of the latch where your binder can be inserted. This graftable area of the latch DOES NOT include your protected region!</div>
-              <div style="display:flex; align-items:center; gap:8px;">
-                <input id="asm-lw-start" type="number" min="1" step="1" placeholder="start" style="width:90px;">
-                <span class="help-text">to</span>
-                <input id="asm-lw-end" type="number" min="1" step="1" placeholder="end" style="width:90px;">
-              </div>
-              <div style="display:flex; gap:8px; margin-top:4px;">
-                <div class="field-error" id="asm-lw-start-error" style="flex:1;"></div>
-                <div class="field-error" id="asm-lw-end-error" style="flex:1;"></div>
-              </div>
-            </div>
-
-            <div class="field-row">
-              <label>Binder</label>
-              <div style="display:grid; grid-template-columns:1fr 110px; gap:8px; align-items:start;">
-                <div>
-                  <input id="asm-binder" type="text" class="font-mono" placeholder="Binder sequence (e.g. LISAAALAAIFAAALAC)" style="width:100%;">
-                  <div class="field-error" id="asm-binder-error"></div>
-                </div>
-                <div>
-                  <input id="asm-binder-start" type="number" min="1" step="1" placeholder="start pos" style="width:100%;">
-                  <div class="field-error" id="asm-binder-start-error"></div>
-                </div>
-              </div>
-            </div>
-
-            <div class="field-row">
-              <label>Spacer <span class="unit-suffix">optional</span></label>
-              <div style="display:grid; grid-template-columns:1fr 110px; gap:8px; align-items:start;">
-                <input id="asm-spacer" type="text" class="font-mono" placeholder="Spacer sequence (e.g. DA)" style="width:100%;">
-                <input id="asm-spacer-start" type="number" min="1" step="1" placeholder="start pos" style="width:100%;">
-              </div>
-              <div class="field-error" id="asm-spacer-start-error"></div>
-              <div class="help-text">This is the pre-existing gap between the binder and protected region.</div>
-            </div>
-
-            <div class="field-row" style="margin-bottom:8px;">
-              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                <input type="checkbox" id="asm-tandem-cb" style="width:auto; height:auto; cursor:pointer;">
-                Use this advanced setting if your LOCKR system utilizes tandem binding domains (e.g. two binders separated by a linker)!
-              </label>
-            </div>
-
-            <div id="asm-tandem-fields" style="display:none;">
-              <div style="padding-left:16px; border-left:2px solid var(--border-strong);">
-                <div class="field-row">
-                  <label>Linker</label>
-                  <div style="display:grid; grid-template-columns:1fr 110px; gap:8px; align-items:start;">
-                    <input id="asm-linker" type="text" class="font-mono" placeholder="Linker sequence" style="width:100%;">
-                    <input id="asm-linker-start" type="number" min="1" step="1" placeholder="start pos" style="width:100%;">
-                  </div>
-                  <div class="field-error" id="asm-linker-start-error"></div>
-                </div>
-                <div class="field-row">
-                  <label>Binder 2</label>
-                  <div style="display:grid; grid-template-columns:1fr 110px; gap:8px; align-items:start;">
-                    <input id="asm-binder2" type="text" class="font-mono" placeholder="Second binder sequence" style="width:100%;">
-                    <input id="asm-binder2-start" type="number" min="1" step="1" placeholder="start pos" style="width:100%;">
-                  </div>
-                  <div class="field-error" id="asm-binder2-start-error"></div>
-                </div>
-              </div>
-            </div>
-
-            <div class="field-row">
-              <label>Protected motif</label>
-              <div class="help-text" style="margin-bottom:6px;">This is the sequence that remains untouched in the final graft (e.g. your luciferase fragment)!</div>
-              <input id="asm-pr-motif" type="text" class="font-mono" placeholder="Motif sequence (e.g. VTGYRLFEEIL)">
-              <div class="field-error" id="asm-pr-motif-error"></div>
-              <div style="display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap;">
-                <input id="asm-pr-start" type="number" min="1" step="1" placeholder="start" style="width:90px;">
-                <span class="help-text">to</span>
-                <input id="asm-pr-end" type="number" min="1" step="1" placeholder="end" style="width:90px;">
-                <input id="asm-pr-label" type="text" placeholder="label (e.g. SmBiT)" style="width:140px;">
-              </div>
-              <div style="display:flex; gap:8px; margin-top:4px;">
-                <div class="field-error" id="asm-pr-start-error" style="flex:1;"></div>
-                <div class="field-error" id="asm-pr-end-error" style="flex:1;"></div>
-              </div>
-            </div>
-
-            <div class="field-row">
-              <label for="asm-total-length">Expected total length <span class="unit-suffix">optional</span></label>
-              <input id="asm-total-length" type="number" min="1" step="1" placeholder="e.g. 359" style="width:120px;">
-            </div>
-
-            <div class="field-row" style="display:flex; gap:8px; margin-top:24px;">
-              <button type="button" id="asm-submit" class="btn-primary" disabled>Verify</button>
-              <button type="button" id="asm-reset" class="btn-ghost">Reset</button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <div>
-        <div id="asm-empty-state" class="empty-state">
-          Fill in the required sections of this form and click verify to run natural checks on the LOCKR system's sequence and assembly!
-        </div>
-        <div id="asm-results" style="display:none;">
-          <div class="card">
-            <div id="asm-summary"></div>
-            <div id="asm-check-list"></div>
-          </div>
-          <div class="card" style="margin-top:16px;">
-            <h2 class="font-display" style="font-size:18px; margin-bottom:10px;">Sequence map</h2>
-            <div style="display:flex; gap:16px; flex-wrap:wrap; font-size:13px; margin-bottom:12px;">
-              <span><span class="asm-hl asm-hl--protected" style="padding:1px 5px; border-radius:3px;">AA</span> Protected motif</span>
-              <span><span class="asm-hl asm-hl--latch" style="padding:1px 5px; border-radius:3px;">AA</span> Latch (graftable)</span>
-              <span><span class="asm-hl asm-hl--spacer" style="padding:1px 5px; border-radius:3px;">AA</span> Spacer</span>
-              <span><span class="asm-hl asm-hl--binder" style="padding:1px 5px; border-radius:3px;">AA</span> Binder</span>
-            </div>
-            <div class="seq-scroll">
-              <div id="asm-seq-display" class="asm-seq-display"></div>
-            </div>
-          </div>
-
-          <details class="card" id="asm-kopen-section" style="margin-top:16px;">
+          <details class="card" id="calc-kopen-section" style="margin-top:16px;">
             <summary style="cursor:pointer; font-family:var(--font-display); font-size:18px; font-weight:600;">K_open Tuning Analysis</summary>
             <div style="margin-top:16px;">
-              <div class="help-text" style="margin-bottom:16px;">Explore whether loosening K_open by mutating downstream latch residues would actually raise fold-change — this works independently of the checklist above.</div>
+              <div class="help-text" style="margin-bottom:16px;">Based on your current Calculator parameters (K_CK, K_open, pull, lucKey above). Explore whether loosening K_open by mutating latch residues would actually raise fold-change.</div>
 
               <div class="field-row">
-                <label for="asm-kopen-current">Current K_open <span class="unit-suffix">—</span></label>
-                <input id="asm-kopen-current" type="number" step="any" min="0" value="0.001" style="max-width:160px;">
-                <div class="help-text">Pulled from the Calculator tab if you've set one there; otherwise defaults to 0.001.</div>
+                <label for="calc-kopen-latch">Latch sequence <span class="unit-suffix">optional</span></label>
+                <textarea id="calc-kopen-latch" class="font-mono" rows="3" placeholder="Paste to identify tuning candidates (I/V residues)"></textarea>
+                <div class="help-text">Candidate positions below are numbered from the start of <b>this pasted snippet</b> (position 1 = its first residue), not from your full-length construct, translate back to your real numbering before ordering any mutation.</div>
               </div>
 
               <div class="field-row">
-                <label for="asm-kopen-preserve">Preserve positions <span class="unit-suffix">optional</span></label>
-                <input id="asm-kopen-preserve" type="text" placeholder="e.g. 1,2,11,12,15">
-                <div class="help-text">Positions critical for target binding — excluded from tuning candidates even if they're I/V.</div>
+                <label for="calc-kopen-preserve">Preserve positions <span class="unit-suffix">optional</span>, numbered within the pasted snippet above</label>
+                <input id="calc-kopen-preserve" type="text" placeholder="e.g. 1,2,11,12,15">
+                <div class="help-text">Positions critical for target binding, excluded from tuning candidates even if they're I/V.</div>
               </div>
 
               <div class="field-row">
                 <label>Destabilization per mutation</label>
-                <div class="segmented" id="asm-destab-segmented">
+                <div class="segmented" id="calc-destab-segmented">
                   <button type="button" data-destab="conservative" class="active">Conservative (0.5 kcal/mol)</button>
                   <button type="button" data-destab="moderate">Moderate (1.0 kcal/mol)</button>
                   <button type="button" data-destab="optimistic">Optimistic (1.5 kcal/mol)</button>
@@ -590,19 +567,19 @@
               </div>
 
               <div class="field-row" style="margin-top:20px;">
-                <button type="button" id="asm-kopen-analyze" class="btn-primary">Analyze K_open Tuning</button>
+                <button type="button" id="calc-kopen-analyze" class="btn-primary">Analyze K_open Tuning</button>
               </div>
-              <div class="field-error" id="asm-kopen-error"></div>
+              <div class="field-error" id="calc-kopen-error"></div>
 
-              <div id="asm-kopen-results" style="display:none; margin-top:20px;">
-                <div id="asm-kopen-candidates" class="help-text" style="margin-bottom:12px;"></div>
+              <div id="calc-kopen-results" style="display:none; margin-top:20px;">
+                <div id="calc-kopen-candidates" class="help-text" style="margin-bottom:12px;"></div>
                 <div class="card" style="padding:0; overflow:hidden; box-shadow:none;">
                   <div style="overflow-x:auto;">
-                    <table class="batch-table" id="asm-kopen-table"></table>
+                    <table class="batch-table" id="calc-kopen-table"></table>
                   </div>
                 </div>
-                <div id="asm-kopen-negative-note" class="help-text" style="display:none; margin-top:12px;"></div>
-                <div id="asm-kopen-crossover-note" class="help-text" style="margin-top:12px;"></div>
+                <div id="calc-kopen-negative-note" class="help-text" style="display:none; margin-top:12px;"></div>
+                <div id="calc-kopen-crossover-note" class="help-text" style="margin-top:12px;"></div>
               </div>
             </div>
           </details>
@@ -621,6 +598,5 @@
 <script src="static/js/plot.js"></script>
 <script src="static/js/calculator.js"></script>
 <script src="static/js/scanner.js"></script>
-<script src="static/js/assembly.js"></script>
 </body>
 </html>

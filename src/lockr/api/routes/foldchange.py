@@ -1,7 +1,7 @@
-"""POST /foldchange -- thin wrapper over thermo.py.
+"""POST /foldchange, thin wrapper over thermo.py.
 
 Only one translation happens at this boundary: nM (wire) -> M (engine) for
-every concentration. k_open/pull pass straight through -- there's no
+every concentration. k_open/pull pass straight through, there's no
 standalone "K_open(ON)" in the engine (it's K_open*(1+pull*theta), a derived
 quantity), so the request takes the same two knobs thermo.py actually takes
 instead of backing pull out of a synthetic ON/OFF ratio.
@@ -22,7 +22,7 @@ from ..schemas.foldchange import FoldChangeRequest, FoldChangeResponse
 router = APIRouter()
 
 
-_UNDEFINED_RESULT_MESSAGE = "Parameters produce an undefined result — check K_open and K_CK."
+_UNDEFINED_RESULT_MESSAGE = "Parameters produce an undefined result, check K_open and K_CK."
 
 _NM_TO_M = 1e-9
 
@@ -65,11 +65,11 @@ def _quality_and_interpretation(fc: float, max_fc: float, at_saturation: bool) -
         desc = "a detectable but small signal jump"
     else:
         quality = "weak"
-        desc = "barely above background — likely hard to detect on a plate reader"
+        desc = "barely above background, likely hard to detect on a plate reader"
 
     when = "at saturating target" if at_saturation else "at the target level you entered"
     sentence = (f"About {fc:.1f}x brighter luminescence when the target is present versus "
-                f"absent {when} — {desc}.")
+                f"absent {when}, {desc}.")
     if not at_saturation and max_fc > fc * 1.05:
         sentence += f" With fully saturating target this design could reach about {max_fc:.1f}x."
     return quality, sentence

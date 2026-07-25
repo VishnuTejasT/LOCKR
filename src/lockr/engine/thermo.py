@@ -63,7 +63,7 @@ def _saturating_fc(pull: float, params: SensorParams) -> float:
 
 
 def max_fold_change(Kd: float, pull: float, params: SensorParams = DEFAULT_PARAMS) -> float:
-    # Kd is unused on purpose — this max is cage-set, not Kd-set; kept in the
+    # Kd is unused on purpose, this max is cage-set, not Kd-set; kept in the
     # signature to mirror fold_change's args at call sites.
     return _saturating_fc(pull, params)
 
@@ -101,7 +101,7 @@ def lod_and_ec50(Kd: float | None, pull: float, params: SensorParams = DEFAULT_P
 def k_open_from_destab(k_open_current: float, n_mutations: int, destab_per_mut: float,
                        RT: float = DEFAULT_PARAMS.RT) -> float:
     # Each latch mutation shaves destab_per_mut off the cost to crack the cage
-    # open (Langan 2019-style destabilization estimate) -- see K_open tuning
+    # open (Langan 2019-style destabilization estimate), see K_open tuning
     # guide in the Assembly tab.
     dg_cost = -RT * math.log(k_open_current)
     return math.exp(-(dg_cost - n_mutations * destab_per_mut) / RT)
@@ -133,7 +133,7 @@ def kd_from_ddg(kd_ref: float, ddg: float, RT: float = DEFAULT_PARAMS.RT) -> flo
 
 # How hard the regime diagnostic pushes K_open to test if it moves fold-change.
 _K_OPEN_PROBE_FACTOR = 30.0
-# Sensitivity thresholds on that probe — general heuristic, not biology.
+# Sensitivity thresholds on that probe, general heuristic, not biology.
 _KEY_LIMITED_BELOW = 0.02
 _KOPEN_LIMITED_ABOVE = 0.08
 
@@ -166,7 +166,7 @@ def diagnose_regime(params: SensorParams = DEFAULT_PARAMS, pull: float = 10.0) -
                    f"K_open, so latch tuning materially affects fold-change.")
     else:
         regime, helps = "mixed", True
-        verdict = (f"Mixed: lucKey/K_CK = {ratio:.1f} — both the latch and the "
+        verdict = (f"Mixed: lucKey/K_CK = {ratio:.1f}, both the latch and the "
                    f"key constrain fold-change here.")
 
     return RegimeResult(ratio, params.K_open, regime, mfc, helps, verdict)
@@ -174,7 +174,7 @@ def diagnose_regime(params: SensorParams = DEFAULT_PARAMS, pull: float = 10.0) -
 
 def fit_pull_strength(target_conc, fc_measured, Kd: float,
                       params: SensorParams = DEFAULT_PARAMS):
-    # Pull can't be computed — back it out from a measured titration curve.
+    # Pull can't be computed, back it out from a measured titration curve.
     target_conc = np.asarray(target_conc, dtype=float)
     fc_measured = np.asarray(fc_measured, dtype=float)
 

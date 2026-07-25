@@ -77,7 +77,7 @@ def test_foldchange_reports_undefined_result_instead_of_crashing_or_nan():
     assert response.status_code == 400
     body = response.json()
     assert body["error"]["code"] == "UNDEFINED_RESULT"
-    assert body["error"]["message"] == "Parameters produce an undefined result — check K_open and K_CK."
+    assert body["error"]["message"] == "Parameters produce an undefined result, check K_open and K_CK."
 
 
 def test_foldchange_rejects_lone_target_conc_without_k_target():
@@ -85,6 +85,9 @@ def test_foldchange_rejects_lone_target_conc_without_k_target():
         **_BASE_REQUEST, "k_target": None, "target_conc": 5.0,
     })
     assert response.status_code == 400
+    message = response.json()["error"]["message"]
+    assert not message.startswith("Value error,")  # pydantic's wrapper prefix must not leak
+    assert "K_target" in message and "target concentration" in message
 
 
 def test_foldchange_lod_null_when_target_assumed_saturating():

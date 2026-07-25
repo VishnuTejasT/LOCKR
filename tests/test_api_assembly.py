@@ -73,7 +73,7 @@ def test_suggest_then_verify_assembly_round_trip_accepts_real_fix():
 
 def test_suggest_then_verify_assembly_round_trip_rejects_variant_inside_protected_region():
     # Same real suggestion, but with an offset that lands its mutations inside
-    # SmBiT (312-322) instead of past it -- proves the screen actually rejects,
+    # SmBiT (312-322) instead of past it, proves the screen actually rejects,
     # not just that it always accepts.
     suggested = client.post("/suggest", json={
         "sequence": "LISDAELEAIFAEELDC",

@@ -1,4 +1,4 @@
-"""Request/response shapes for POST /verify-assembly -- no spec entry, designed
+"""Request/response shapes for POST /verify-assembly, no spec entry, designed
 from scratch and sanity-checked with the user before being wired up."""
 
 from __future__ import annotations
@@ -83,3 +83,22 @@ class VerifyAssemblyResponse(BaseModel):
     all_passed: bool
     checks: list[CheckResult]
     variants: VariantScreen | None = None
+
+
+class CheckSequenceRequest(BaseModel):
+    sequence: str
+
+    @field_validator("sequence")
+    @classmethod
+    def _non_empty(cls, v):
+        if not v.strip():
+            raise ValueError("sequence is empty")
+        return v.strip().upper()
+
+
+class CheckSequenceResponse(BaseModel):
+    length: int
+    smbit_found: bool
+    smbit_start: int | None
+    smbit_end: int | None
+    warnings: list[str]

@@ -19,7 +19,7 @@ def test_original_kck_estimate():
     # FLAG: my source PDFs once printed this grafted K_CK as ~3e-12; confirmed
     # documentation typo, now fixed in the PDFs. exp(-(|dG_CK|-penalty)/RT)
     # with penalty=4.8 gives ~3.3e-5, matching the docs' own "3000x weaker"
-    # prose -- asserting the corrected value, not the old ~3e-12.
+    # prose, asserting the corrected value, not the old ~3e-12.
     r = liability.scan_liability(ORIGINAL, preserve_positions=calibration.PFLDH_INTERFACE)
     assert r.K_CK_estimate == pytest.approx(3.3e-5, rel=0.05)
 
@@ -27,7 +27,7 @@ def test_original_kck_estimate():
 def test_original_kck_matches_corrected_documentation():
     # Hand-verified after a documentation error: my PDFs previously and
     # incorrectly said K_CK_grafted ~3e-12 for the charged original binder.
-    # By hand: exp(-(10.905-4.8)/0.592) = 3.32e-5, not 3e-12 -- the PDFs have
+    # By hand: exp(-(10.905-4.8)/0.592) = 3.32e-5, not 3e-12, the PDFs have
     # since been corrected to 3.32e-5. This pins that corrected value so a
     # future reader isn't surprised by a "weak"-looking number and doesn't
     # accidentally regress the engine back toward the old wrong figure.

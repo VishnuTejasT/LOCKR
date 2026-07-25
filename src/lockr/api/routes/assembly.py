@@ -1,8 +1,8 @@
-"""POST /verify-assembly -- thin wrapper over assembly.py's structural
+"""POST /verify-assembly, thin wrapper over assembly.py's structural
 checklist and its liability.py bridge function.
 
 candidate_variants/binder_offset exist because a variant /suggest proposes is
-binder-local (see docs/README.md step 5) -- filter_safe_variants takes
+binder-local (see docs/README.md step 5), filter_safe_variants takes
 positions at face value, so this route is the one place that has to apply
 `offset = binder_start_in_assembly - 1` before checking a suggestion against
 a ProtectedRegion.
@@ -16,8 +16,8 @@ from lockr.engine import assembly
 from lockr.engine.models import GraftSpec, LatchWindow, ProtectedRegion, VariantSuggestion
 
 from ..schemas.assembly import (
-    CandidateVariant, CheckResult, RejectedVariant, VerifyAssemblyRequest,
-    VerifyAssemblyResponse, VariantScreen,
+    CandidateVariant, CheckResult, CheckSequenceRequest, CheckSequenceResponse,
+    RejectedVariant, VerifyAssemblyRequest, VerifyAssemblyResponse, VariantScreen,
 )
 
 router = APIRouter()
@@ -65,3 +65,11 @@ def verify_assembly(request: VerifyAssemblyRequest) -> VerifyAssemblyResponse:
         )
 
     return VerifyAssemblyResponse(all_passed=result.all_passed, checks=checks, variants=variants)
+
+
+@router.post("/check-sequence", response_model=CheckSequenceResponse)
+def check_sequence(request: CheckSequenceRequest) -> CheckSequenceResponse:
+    result = assembly.check_sequence(request.sequence)
+    start, end = result.smbit_position if result.smbit_position else (None, None)
+    return CheckSequenceResponse(length=result.length, smbit_found=result.smbit_found,
+                                 smbit_start=start, smbit_end=end, warnings=result.warnings)

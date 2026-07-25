@@ -55,5 +55,5 @@ def helix_breakers(sequence: str) -> list[int]:
 def analyze_charge(sequence: str, pH: float = 7.4) -> ChargeResult:
     breakers = helix_breakers(sequence)
     ok = helix_propensity(sequence) >= 1.0 and not breakers
-    note = "" if ok else "low helix propensity or internal P/G — check register"
+    note = "" if ok else "low helix propensity or internal P/G, check register"
     return ChargeResult(net_charge(sequence, pH), pH, ok, breakers, note)

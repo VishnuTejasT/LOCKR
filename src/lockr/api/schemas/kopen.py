@@ -1,4 +1,4 @@
-"""Request/response shapes for POST /kopen-scenarios -- no spec entry, built to
+"""Request/response shapes for POST /kopen-scenarios, no spec entry, built to
 back the Assembly tab's K_open Tuning Analysis section (see lockr-tool-plan.md
 §7: the engine is the one source of truth for the math, so this what-if grid
 is computed server-side via thermo.py rather than duplicated in JS)."""

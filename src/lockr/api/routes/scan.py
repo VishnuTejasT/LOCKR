@@ -1,8 +1,7 @@
-"""POST /scan and POST /suggest -- both thin wrappers over liability.py.
+"""POST /scan and POST /suggest, both thin wrappers over liability.py.
 
 preserve_positions threads straight through to liability.py's own parameter
-(the soft target-interface tradeoff, e.g. PfLDH contacts like [1,2,11,12,15])
--- it defaults to [] so sensitive_window alone still does the work when a
+(the soft target-interface tradeoff, e.g. PfLDH contacts like [1,2,11,12,15]), it defaults to [] so sensitive_window alone still does the work when a
 caller doesn't have target-contact positions to protect.
 """
 
@@ -34,17 +33,35 @@ def _validate_window_and_preserve(window, preserve_positions: list[int], length:
 
 
 _LONG_SEQUENCE_THRESHOLD = 200
-_LONG_SEQUENCE_WARNING = "long sequence — liability model tuned for peptide-scale binders"
+_LONG_SEQUENCE_WARNING = "long sequence: liability model tuned for peptide-scale binders"
 
+_KCK_NOTE_NO_ACIDIC = ("There are not any acidic residues in the sensitive region, so K_CK "
+                      "affinity should be preserved.")
 _KCK_NOTES = {
-    "Low": "There are not any acidic residues in the sensitive region, so K_CK "
-           "affinity should be preserved.",
+    # "Low" band still needs a has-acidic-residues check, a sequence can
+    # have one or two D/E and still score Low, and that's a different
+    # sentence than "there are none" (see _kck_note).
+    "Low": "A few acidic residues are in the sensitive region, but not enough to significantly "
+           "weaken K_CK, affinity should be mostly preserved. Still worth a look at the flagged residues.",
     "Moderate": "There are some acidic residues in the sensitive region, so K_CK may be partially "
                 "weakened. Look over the flagged residues.",
     "High": "There are a lot of acidic residues in the sensitive region, so K_CK affinity is likely to be significantly "
             "hindered. Strongly consider the recommended charge-optimized "
             "variant.",
 }
+
+
+def _kck_note(band: str, has_acidic_residues: bool) -> str:
+    if band == "Low" and not has_acidic_residues:
+        return _KCK_NOTE_NO_ACIDIC
+    return _KCK_NOTES[band]
+
+
+# Shown whenever a suggestion actually changed residues and the caller didn't
+# protect any target-binding positions, Suggest has no way to know which
+# residues matter for target contact unless it's told.
+_NO_PRESERVE_WARNING = ("No preserve_positions were set, so this suggestion may have changed residues "
+                        "needed for target binding, double-check before using it.")
 
 
 def _parse_mutation(mutation: str) -> Substitution:
@@ -89,6 +106,8 @@ def _scan_one(sequence: str, start: int, end: int, ph: float, policy: str,
     warnings = []
     if len(sequence) > _LONG_SEQUENCE_THRESHOLD:
         warnings.append(_LONG_SEQUENCE_WARNING)
+    if variant.mutations and not preserve_positions:
+        warnings.append(_NO_PRESERVE_WARNING)
 
     return ScanResultItem(
         id="",
@@ -100,7 +119,7 @@ def _scan_one(sequence: str, start: int, end: int, ph: float, policy: str,
         liability_band=windowed.liability_band,
         estimated_kck_nm=windowed.K_CK_estimate * 1e9,
         predicted_kck_penalty=KckPenalty(band=windowed.liability_band,
-                                         note=_KCK_NOTES[windowed.liability_band]),
+                                         note=_kck_note(windowed.liability_band, bool(windowed.liabilities))),
         per_position=per_position,
         helix_flags=helix_flags,
         suggested_variants=suggested,

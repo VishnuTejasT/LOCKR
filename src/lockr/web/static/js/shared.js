@@ -2,7 +2,7 @@
 
 const API_BASE = ""; // same origin... lockr serve hosts API and frontend together
 
-// RT at 37°C in kcal/mol -- used for dG<->Kd conversion in calculator
+// RT at 37°C in kcal/mol, used for dG<->Kd conversion in calculator
 const RT_KCAL_MOL = 0.592;
 
 //Scanner writes info here, while Clauclator reads from it.
@@ -20,7 +20,7 @@ function initTabs() {
     btn.addEventListener("click", () => showTab(btn.dataset.tab));
   });
   const initial = location.hash.replace("#", "") || "scanner";
-  showTab(["scanner", "calculator", "assembly"].includes(initial) ? initial : "scanner");
+  showTab(["scanner", "calculator"].includes(initial) ? initial : "scanner");
 }
 
 let toastTimer = null;
@@ -57,9 +57,9 @@ async function apiPost(path, body) {
   return data;
 }
 
-// nM in, human-scaled string out -- e.g. 0.000042 nM -> "42 fM", never raw sci notation.
+// nM in, human-scaled string out, e.g. 0.000042 nM -> "42 fM", never raw sci notation.
 function formatConcNm(nm) {
-  if (nm === null || nm === undefined || Number.isNaN(nm)) return "—";
+  if (nm === null || nm === undefined || Number.isNaN(nm)) return "N/A";
   const molar = nm * 1e-9;
   const units = [["fM", 1e-15], ["pM", 1e-12], ["nM", 1e-9], ["µM", 1e-6], ["mM", 1e-3], ["M", 1]];
   for (let i = 0; i < units.length; i++) {

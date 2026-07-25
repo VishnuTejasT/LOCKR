@@ -91,13 +91,48 @@ def test_scan_warns_on_long_sequence():
     })
     assert response.status_code == 200
     result = response.json()["results"][0]
-    assert result["warnings"] == ["long sequence — liability model tuned for peptide-scale binders"]
+    assert result["warnings"] == ["long sequence: liability model tuned for peptide-scale binders"]
 
 
 def test_scan_has_no_warnings_for_typical_length_sequence():
-    response = client.post("/scan", json=_scan_request())
+    # preserve_positions is set, so the "you didn't protect anything" nudge
+    # doesn't fire here, this test is only about the long-sequence warning.
+    response = client.post("/scan", json=_scan_request(preserve_positions=calibration.PFLDH_INTERFACE))
     result = response.json()["results"][0]
     assert result["warnings"] == []
+
+
+def test_scan_warns_when_mutations_suggested_without_preserve_positions():
+    response = client.post("/scan", json=_scan_request())
+    result = response.json()["results"][0]
+    assert any("preserve_positions were set" in w for w in result["warnings"])
+
+
+def test_scan_no_preserve_warning_when_no_mutations_suggested():
+    response = client.post("/scan", json=_scan_request(sequence="LISAAALAAIFAAALAC"))
+    result = response.json()["results"][0]
+    assert result["warnings"] == []
+
+
+def test_scan_low_band_note_is_honest_about_acidic_residues_present():
+    # A single D scores Low but isn't zero acidic residues, the note text
+    # must not claim there are none when acidic_residues is non-empty.
+    response = client.post("/scan", json={
+        "sequences": [{"id": "x", "sequence": "D"}],
+        "sensitive_window": {"start": 1, "end": 1},
+    })
+    result = response.json()["results"][0]
+    assert result["liability_band"] == "Low"
+    assert len(result["acidic_residues"]) == 1
+    assert "not any acidic residues" not in result["predicted_kck_penalty"]["note"]
+
+
+def test_scan_low_band_note_says_none_when_truly_none():
+    response = client.post("/scan", json=_scan_request(sequence="LISAAALAAIFAAALAC"))
+    result = response.json()["results"][0]
+    assert result["liability_band"] == "Low"
+    assert result["acidic_residues"] == []
+    assert "not any acidic residues" in result["predicted_kck_penalty"]["note"]
 
 
 def test_scan_rejects_preserve_position_out_of_range():

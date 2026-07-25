@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .errors import install_error_handlers
-from .routes import assembly, foldchange, kopen, scan, sweep
+from .routes import assembly, foldchange, graft, kopen, scan, sweep
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
@@ -16,6 +16,7 @@ app.include_router(foldchange.router)
 app.include_router(sweep.router)
 app.include_router(assembly.router)
 app.include_router(kopen.router)
+app.include_router(graft.router)
 
 app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
 

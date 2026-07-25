@@ -231,7 +231,7 @@ async function batchSubmit() {
   errEl.textContent = "";
   if (records.length === 0) return;
   if (records.length > 500) {
-    errEl.textContent = `${records.length} sequences exceeds the 500-sequence limit — remove ${records.length - 500} and retry.`;
+    errEl.textContent = `${records.length} sequences exceeds the 500-sequence limit, remove ${records.length - 500} and retry.`;
     return;
   }
 
@@ -337,6 +337,44 @@ function renderLiveAnnotation() {
   }
 
   document.getElementById("scan-submit").disabled = cleaned.length === 0;
+
+  scheduleBackgroundSequenceCheck(cleaned);
+}
+
+// --- Background sequence validation --------------------------------------
+// Silent unless something's actually wrong, like a spell checker, not a form.
+
+const BG_CHECK_MIN_LENGTH = 50;
+const BG_CHECK_DEBOUNCE_MS = 800;
+let bgCheckTimer = null;
+
+function scanRenderBgWarning(warnings) {
+  const wrap = document.getElementById("scan-bg-warning");
+  const textEl = document.getElementById("scan-bg-warning-text");
+  if (!warnings || warnings.length === 0) {
+    wrap.style.display = "none";
+    return;
+  }
+  wrap.style.display = "block";
+  textEl.textContent = warnings.map((w) => `⚠ ${w}`).join("  ");
+}
+
+async function runBackgroundSequenceCheck(sequence) {
+  if (sequence.length <= BG_CHECK_MIN_LENGTH) {
+    scanRenderBgWarning([]);
+    return;
+  }
+  try {
+    const result = await apiPost("/check-sequence", { sequence });
+    scanRenderBgWarning(result.warnings);
+  } catch (err) {
+    // background check failing quietly is fine, it's not the main flow
+  }
+}
+
+function scheduleBackgroundSequenceCheck(sequence) {
+  clearTimeout(bgCheckTimer);
+  bgCheckTimer = setTimeout(() => runBackgroundSequenceCheck(sequence), BG_CHECK_DEBOUNCE_MS);
 }
 
 function scanEl(id) { return document.getElementById(id); }
@@ -452,8 +490,8 @@ function scanRenderVariant(result) {
     scanEl("scan-variant-mutations").textContent = "";
     scanEl("scan-variant-score-before").textContent = roundSig(result.liability_score, 3);
     scanEl("scan-variant-score-after").textContent = roundSig(result.liability_score, 3);
-    scanEl("scan-variant-kck-estimate").textContent = "—";
-    scanEl("scan-variant-kck-estimate-nm").textContent = "—";
+    scanEl("scan-variant-kck-estimate").textContent = "N/A";
+    scanEl("scan-variant-kck-estimate-nm").textContent = "N/A";
     scanEl("scan-variant-copy-row").style.display = "none";
     scanEl("scan-variant-kck-send-btn").style.display = "none";
     return;
@@ -493,12 +531,233 @@ function scanRenderVariant(result) {
   scanEl("scan-variant-copy-sequence").textContent = variant.sequence;
 }
 
+// --- Grafting -------------------------------------------------------------
+// Threads the current scan's (optimized) binder into the lucCage latch via
+// PyRosetta and reports the best-scoring position. Lives entirely off the
+// last /scan result, no separate sequence entry.
+
+const graftState = { status: null, lastScanResult: null, jobId: null, kckNm: null, kckLabel: "" };
+
+async function graftCheckStatus() {
+  try {
+    const res = await fetch(`${API_BASE}/graft/status`);
+    graftState.status = await res.json();
+  } catch (err) {
+    graftState.status = { available: false, version: null, template_bundled: false };
+  }
+  graftUpdateAvailabilityUI();
+}
+
+function graftUpdateAvailabilityUI() {
+  const available = graftState.status && graftState.status.available;
+  scanEl("graft-unavailable-note").style.display = available ? "none" : "block";
+  graftUpdateButtonState();
+}
+
+// The sequence grafting actually uses: the suggested variant if it changed
+// anything, otherwise the sequence as scanned.
+function graftUsingSequence(result) {
+  const variant = result.suggested_variants && result.suggested_variants[0];
+  if (variant && variant.sequence !== result.sequence) {
+    return { sequence: variant.sequence, kckNm: variant.estimated_kck_nm, label: "optimized variant" };
+  }
+  return { sequence: result.sequence, kckNm: result.estimated_kck_nm, label: "scanned sequence" };
+}
+
+function graftOnNewScanResult(result) {
+  graftState.lastScanResult = result;
+  const using = graftUsingSequence(result);
+  graftState.kckNm = using.kckNm;
+  graftState.kckLabel = using.label;
+  scanEl("graft-using-label").textContent = `Using: ${using.sequence}`;
+  graftReset();
+  graftUpdateButtonState();
+}
+
+function graftUpdateButtonState() {
+  const available = graftState.status && graftState.status.available;
+  scanEl("graft-submit").disabled = !available || !graftState.lastScanResult;
+}
+
+function graftReadRequest() {
+  const using = graftUsingSequence(graftState.lastScanResult);
+  const specific = scanEl("graft-specific-cb").checked;
+  const position = specific ? parseInt(scanEl("graft-specific-position").value, 10) : null;
+  return {
+    sequence: using.sequence,
+    scan_all: !specific,
+    specific_position: specific && !isNaN(position) ? position : null,
+  };
+}
+
+function graftReset() {
+  scanEl("graft-progress").style.display = "none";
+  scanEl("graft-error").style.display = "none";
+  scanEl("graft-results").style.display = "none";
+  graftState.jobId = null;
+}
+
+// A stuck PyRosetta run shouldn't hang the page forever, race the request
+// against a 5-minute timer and report a clean timeout instead of spinning.
+const GRAFT_TIMEOUT_MS = 5 * 60 * 1000;
+
+function graftRequestWithTimeout(body) {
+  return Promise.race([
+    apiPost("/graft", body),
+    new Promise((_, reject) => setTimeout(() => reject({ isTimeout: true }), GRAFT_TIMEOUT_MS)),
+  ]);
+}
+
+const GRAFT_VERDICT_LABELS = { good: "GOOD", marginal: "MARGINAL", poor: "POOR", uncalibrated: "UNCALIBRATED" };
+
+function graftRenderScoreChart(allScores, bestPosition) {
+  const container = scanEl("graft-score-chart");
+  container.innerHTML = "";
+  if (allScores.length === 0) return;
+
+  const scores = allScores.map((s) => s.score);
+  const worst = Math.max(...scores);
+  const best = Math.min(...scores);
+  const span = worst - best || 1;
+
+  const row = document.createElement("div");
+  row.className = "graft-score-bars";
+  allScores.forEach(({ position, score }) => {
+    const col = document.createElement("div");
+    col.className = "graft-score-bar-col";
+
+    const bar = document.createElement("div");
+    const heightPct = ((worst - score) / span) * 100;
+    bar.className = `graft-score-bar${position === bestPosition ? " graft-score-bar--best" : ""}`;
+    bar.style.height = `${Math.max(heightPct, 2)}%`;
+    bar.title = `Position ${position}: ${roundSig(score, 5)} REU`;
+
+    const label = document.createElement("div");
+    label.className = "graft-score-bar-pos";
+    label.textContent = position;
+
+    col.appendChild(bar);
+    col.appendChild(label);
+    row.appendChild(col);
+  });
+  container.appendChild(row);
+}
+
+function graftRenderResults(data, usingSequence) {
+  scanEl("graft-best-position").textContent = `Position ${data.best_position} in latch (325-359)`;
+  scanEl("graft-best-score").textContent = `${roundSig(data.best_score, 6)} REU`;
+
+  const badge = scanEl("graft-verdict-badge");
+  badge.className = `badge badge-${data.verdict}`;
+  badge.textContent = GRAFT_VERDICT_LABELS[data.verdict] || data.verdict;
+
+  scanEl("graft-poor-note").style.display = data.verdict === "poor" ? "block" : "none";
+
+  graftRenderScoreChart(data.all_scores, data.best_position);
+
+  const binderStart = data.best_position;
+  const binderEnd = data.best_position + usingSequence.length - 1;
+  scanEl("graft-sequence-display").innerHTML = "";
+  scanEl("graft-sequence-display").appendChild(
+    buildResidueRow(data.grafted_sequence, (ch, i) => {
+      const pos = i + 1;
+      return pos >= binderStart && pos <= binderEnd ? "res-new" : "res-muted";
+    })
+  );
+
+  graftState.jobId = data.job_id;
+
+  const sendBtn = scanEl("graft-kck-send-btn");
+  if ((data.verdict === "good" || data.verdict === "marginal") && graftState.kckNm !== null) {
+    sendBtn.style.display = "inline-block";
+    sendBtn.onclick = () => {
+      window.lockrChain.pipedKck = graftState.kckNm;
+      window.lockrChain.sourceLabel = `${graftState.kckLabel} (grafted, position ${data.best_position})`;
+      showTab("calculator");
+    };
+  } else {
+    sendBtn.style.display = "none";
+  }
+
+  scanEl("graft-results").style.display = "block";
+}
+
+async function graftSubmit() {
+  if (!graftState.lastScanResult) return;
+  graftReset();
+  scanEl("graft-progress").style.display = "block";
+  scanEl("graft-submit").disabled = true;
+
+  const request = graftReadRequest();
+  const usingSequence = request.sequence;
+
+  try {
+    const data = await graftRequestWithTimeout(request);
+    graftRenderResults(data, usingSequence);
+  } catch (err) {
+    const errEl = scanEl("graft-error");
+    errEl.style.display = "block";
+    if (err && err.isTimeout) {
+      errEl.textContent = "Grafting timed out. Try a shorter sequence or use a specific position.";
+    } else if (err && err.code === "PYROSETTA_UNAVAILABLE") {
+      errEl.textContent = "Grafting requires PyRosetta, see the Install Guide for setup.";
+    } else if (err && err.code === "NO_VALID_POSITIONS") {
+      errEl.textContent = "No valid graft positions found, binder may be too long or incompatible with the latch window geometry.";
+    } else if (err && err.networkError) {
+      showToast(err.message);
+      errEl.style.display = "none";
+    } else {
+      errEl.textContent = (err && err.message) || "Grafting failed for an unknown reason.";
+    }
+  } finally {
+    scanEl("graft-progress").style.display = "none";
+    graftUpdateButtonState();
+  }
+}
+
+function graftCopySequence() {
+  const seq = graftState.lastScanResult
+    ? document.querySelector("#graft-sequence-display").textContent
+    : "";
+  navigator.clipboard.writeText(seq).then(
+    () => showToast("Grafted sequence copied."),
+    () => showToast("Couldn't copy, select and copy the sequence manually.")
+  );
+}
+
+function graftValidate() {
+  const seq = document.querySelector("#graft-sequence-display").textContent;
+  if (!seq) return;
+  scanEl("scan-sequence").value = seq;
+  renderLiveAnnotation();
+  scanEl("scan-sequence").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function graftDownloadPdb() {
+  if (!graftState.jobId) return;
+  window.open(`${API_BASE}/graft/download/${graftState.jobId}`, "_blank");
+}
+
+function initGraft() {
+  graftCheckStatus();
+
+  scanEl("graft-specific-cb").addEventListener("change", (e) => {
+    scanEl("graft-specific-position").style.display = e.target.checked ? "block" : "none";
+  });
+
+  scanEl("graft-submit").addEventListener("click", graftSubmit);
+  scanEl("graft-copy-btn").addEventListener("click", graftCopySequence);
+  scanEl("graft-validate-btn").addEventListener("click", graftValidate);
+  scanEl("graft-download-btn").addEventListener("click", graftDownloadPdb);
+}
+
 function scanRenderResults(result) {
   scanEl("scan-empty-state").style.display = "none";
   scanEl("scan-results").style.display = "block";
 
   scanEl("scan-band-label").textContent = `${result.liability_band[0].toUpperCase()}${result.liability_band.slice(1)} liability`;
   scanEl("scan-gauge-marker").style.left = `${result.liability_score}%`;
+  scanEl("scan-liability-score").textContent = roundSig(result.liability_score, 3);
   scanEl("scan-result-ph").textContent = scanEl("scan-ph").value;
   scanEl("scan-net-charge").textContent = roundSig(result.net_charge, 3);
 
@@ -533,6 +792,7 @@ function scanRenderResults(result) {
   scanRenderAnnotatedSequence(result);
   scanRenderContributionChart(result);
   scanRenderVariant(result);
+  graftOnNewScanResult(result);
 }
 
 async function scanSubmit() {
@@ -577,9 +837,14 @@ function initScanner() {
     if (scanMode === "single") {
       textarea.value = "";
       windowTouched = false;
+      clearTimeout(bgCheckTimer);
+      scanRenderBgWarning([]);
       renderLiveAnnotation();
       scanEl("scan-empty-state").style.display = "block";
       scanEl("scan-results").style.display = "none";
+      graftState.lastScanResult = null;
+      graftReset();
+      graftUpdateButtonState();
     } else {
       document.getElementById("scan-batch-text").value = "";
       batchState.results = [];
@@ -610,7 +875,7 @@ function initScanner() {
       await navigator.clipboard.writeText(sequence);
       showToast("Variant sequence copied.");
     } catch (err) {
-      showToast("Couldn't copy — select and copy the sequence manually.");
+      showToast("Couldn't copy, select and copy the sequence manually.");
     }
   });
 
@@ -666,6 +931,7 @@ function initScanner() {
   });
 
   renderLiveAnnotation();
+  initGraft();
 }
 
 document.addEventListener("DOMContentLoaded", initScanner);

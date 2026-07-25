@@ -1,4 +1,4 @@
-"""CLI integration tests -- run lockr as a subprocess so we catch import and exit-code issues."""
+"""CLI integration tests, run lockr as a subprocess so we catch import and exit-code issues."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ def test_scan_eclipse_high_liability():
     r = _run("scan", ECLIPSE_HIGH)
     assert r.returncode == 0
     assert "High" in r.stdout
-    # K_CK ~3.32e-05 M -- check order of magnitude and first significant digit
+    # K_CK ~3.32e-05 M, check order of magnitude and first significant digit
     assert "3.3" in r.stdout or "3.32" in r.stdout
 
 
@@ -141,3 +141,39 @@ def test_fc_zero_kopen_exits_nonzero():
     r = _run("fc", "--k-ck", "10", "--k-open", "0", "--pull", "10", "--luckey", "500")
     assert r.returncode != 0
     assert r.stderr.strip()
+
+
+def test_fc_lone_k_target_error_has_no_pydantic_leak():
+    r = _run("fc", "--k-ck", "10", "--k-open", "0.001", "--pull", "10", "--luckey", "500", "--k-target", "0.1")
+    assert r.returncode != 0
+    assert "Value error," not in r.stderr
+    assert "K_target" in r.stderr and "target concentration" in r.stderr
+
+
+# ── --help ────────────────────────────────────────────────────────────────────
+# argparse applies %-style interpolation to help strings, so a stray literal
+# "%" in any help= text (e.g. "99.9% of the time") crashes --help outright.
+# These just prove every subcommand's --help text still renders.
+
+def test_top_level_help_runs_clean():
+    r = _run("--help")
+    assert r.returncode == 0
+    assert "scan" in r.stdout and "fc" in r.stdout
+
+
+def test_scan_help_runs_clean_and_documents_flags():
+    r = _run("scan", "--help")
+    assert r.returncode == 0
+    assert "--preserve" in r.stdout and "--window" in r.stdout
+
+
+def test_fc_help_runs_clean_and_documents_flags():
+    r = _run("fc", "--help")
+    assert r.returncode == 0
+    assert "--k-ck" in r.stdout and "--k-target" in r.stdout
+
+
+def test_serve_help_runs_clean():
+    r = _run("serve", "--help")
+    assert r.returncode == 0
+    assert "--port" in r.stdout

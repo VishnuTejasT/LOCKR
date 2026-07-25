@@ -12,7 +12,7 @@ from .models import GraftSpec, LatchWindow, ProtectedRegion, VariantSuggestion
 
 
 def _segment(sequence: str, start: int, length: int) -> str:
-    # 1-indexed, inclusive -- matches BinderSequence.residues() elsewhere.
+    # 1-indexed, inclusive, matches BinderSequence.residues() elsewhere.
     return sequence[start - 1:start - 1 + length]
 
 
@@ -148,6 +148,59 @@ def verify_full_assembly(full_sequence: str, latch_window: LatchWindow, graft_sp
                       f"found {found_b2!r}, expected {graft_spec.binder2!r}"))
 
     return AssemblyResult(checks)
+
+
+# The two lucCage variants I've actually built: untagged v1.0 and the
+# His-TEV-tagged version (20aa N-terminal tag shifts everything downstream).
+_SMBIT_MOTIF = "VTGYRLFEEIL"
+_KNOWN_VARIANT_SMBIT_START = {359: 312, 379: 332}
+_MIN_LUCCAGE_LENGTH = 100  # shorter than this, treat as a binder-only paste
+
+
+@dataclass
+class SequenceCheckResult:
+    length: int
+    smbit_found: bool
+    smbit_position: tuple[int, int] | None
+    warnings: list[str] = field(default_factory=list)
+
+
+def check_sequence(sequence: str) -> SequenceCheckResult:
+    """Parameter-free background check for the Scanner, no form to fill out.
+
+    For a known variant length, checks SmBiT at its known position directly
+    (catches a corrupted residue that a free-text search would just call
+    "not found" and skip). For an unrecognized length that still contains
+    SmBiT somewhere, flags the length as off. Anything else is silent, most
+    likely just a binder-only paste, which isn't a lucCage and has nothing to
+    check.
+    """
+    length = len(sequence)
+    warnings: list[str] = []
+    smbit_found = False
+    smbit_position = None
+
+    if length in _KNOWN_VARIANT_SMBIT_START:
+        start = _KNOWN_VARIANT_SMBIT_START[length]
+        end = start + len(_SMBIT_MOTIF) - 1
+        check = check_protected_region(sequence, _SMBIT_MOTIF, start, end)
+        if check.intact:
+            smbit_found = True
+            smbit_position = (start, end)
+        else:
+            warnings.append(f"The luciferase fragment tag (SmBiT, {_SMBIT_MOTIF}) is not found at "
+                            "expected position, this usually means a typo or a missing/duplicated "
+                            "chunk somewhere in the sequence. Check your sequence before scanning.")
+    elif length >= _MIN_LUCCAGE_LENGTH:
+        idx = sequence.find(_SMBIT_MOTIF)
+        if idx != -1:
+            smbit_found = True
+            smbit_position = (idx + 1, idx + len(_SMBIT_MOTIF))
+            warnings.append(f"Sequence length ({length}aa) doesn't match known lucCage "
+                            "variants (359aa or 379aa), verify your sequence is complete "
+                            "(nothing extra pasted in, nothing missing from the ends).")
+
+    return SequenceCheckResult(length, smbit_found, smbit_position, warnings)
 
 
 def _mutation_position(mutation: str) -> int:
