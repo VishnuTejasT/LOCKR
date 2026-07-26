@@ -5,7 +5,7 @@ This software is a CPU-only thermodynamic engine for LOCKR biosensors. It essent
 
 ## Prerequisites
 
-To use this software, please install the following :
+To use this software, please install the following:
 
 ```bash
 1. Conda/Miniconda     # Visit this site on information to download Conda: https://www.anaconda.com/docs/getting-started/installation
