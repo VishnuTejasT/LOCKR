@@ -1,11 +1,3 @@
-"""POST /foldchange, thin wrapper over thermo.py.
-
-Only one translation happens at this boundary: nM (wire) -> M (engine) for
-every concentration. k_open/pull pass straight through, there's no
-standalone "K_open(ON)" in the engine (it's K_open*(1+pull*theta), a derived
-quantity), so the request takes the same two knobs thermo.py actually takes
-instead of backing pull out of a synthetic ON/OFF ratio.
-"""
 
 from __future__ import annotations
 
@@ -49,10 +41,7 @@ _LIMITING_FACTOR = {
 }
 
 
-# Plain-language fold-change quality bands (dimensionless signal ratio).
-# These are rules of thumb for iGEM/biosensor work, not hard cutoffs: a
-# fold-change is the "with target" signal divided by the "no target" signal,
-# so 1x means no response and bigger is easier to read out on a plate reader.
+
 def _quality_and_interpretation(fc: float, max_fc: float, at_saturation: bool) -> tuple[str, str]:
     if fc >= 50:
         quality = "excellent"

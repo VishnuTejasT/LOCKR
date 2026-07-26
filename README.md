@@ -37,9 +37,12 @@ lockr --help          # top-level help
 
 ```bash
 lockr serve
+lockr serve --port 8001    # if 8000 is already taken by something else
 ```
 
-It should provide a local link for you to paste into your browser to get started!
+It should provide a local link for you to paste into your browser to get started! The web app has two tabs, Scanner (for the liability scan, the suggested variant, and grafting the binder into the lucCage latch) and Calculator (for the fold-change prediction).
+
+Grafting needs PyRosetta, which isn't installed by default since it's a ~500MB download. Everything else works fine without it, the graft button just stays disabled until it's there. See `INSTALL.md` for the one-line install if you want that feature.
 
 ### Option 2, command line
 
@@ -75,3 +78,5 @@ lockr scan --help
 lockr fc --help
 lockr serve --help
 ```
+
+There's no `lockr graft` command yet, grafting only exists in the web app for now, through the Scanner tab.

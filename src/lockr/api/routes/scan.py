@@ -1,9 +1,4 @@
-"""POST /scan and POST /suggest, both thin wrappers over liability.py.
 
-preserve_positions threads straight through to liability.py's own parameter
-(the soft target-interface tradeoff, e.g. PfLDH contacts like [1,2,11,12,15]), it defaults to [] so sensitive_window alone still does the work when a
-caller doesn't have target-contact positions to protect.
-"""
 
 from __future__ import annotations
 
@@ -38,9 +33,6 @@ _LONG_SEQUENCE_WARNING = "long sequence: liability model tuned for peptide-scale
 _KCK_NOTE_NO_ACIDIC = ("There are not any acidic residues in the sensitive region, so K_CK "
                       "affinity should be preserved.")
 _KCK_NOTES = {
-    # "Low" band still needs a has-acidic-residues check, a sequence can
-    # have one or two D/E and still score Low, and that's a different
-    # sentence than "there are none" (see _kck_note).
     "Low": "A few acidic residues are in the sensitive region, but not enough to significantly "
            "weaken K_CK, affinity should be mostly preserved. Still worth a look at the flagged residues.",
     "Moderate": "There are some acidic residues in the sensitive region, so K_CK may be partially "
@@ -57,9 +49,6 @@ def _kck_note(band: str, has_acidic_residues: bool) -> str:
     return _KCK_NOTES[band]
 
 
-# Shown whenever a suggestion actually changed residues and the caller didn't
-# protect any target-binding positions, Suggest has no way to know which
-# residues matter for target contact unless it's told.
 _NO_PRESERVE_WARNING = ("No preserve_positions were set, so this suggestion may have changed residues "
                         "needed for target binding, double-check before using it.")
 
