@@ -24,6 +24,26 @@ conda activate igem
 pip install -e .
 ```
 
+## Grafting feature (optional)
+
+The Scanner's "Graft into lucCage" step needs PyRosetta, and it is not installed by default because it's a ~500mb download.. Everything else in the software works without it, and if it is not downloaded, then the graft button is disabled.
+
+```bash
+conda activate igem
+pip install pyrosetta \
+  --find-links https://west.rosettacommons.org/pyrosetta/quarterly/release
+# East coast mirror if West is slow:
+# pip install pyrosetta \
+#   --find-links https://graylab.jhu.edu/download/PyRosetta4/archive/release-quarterly/release
+
+# Python 3.10 is required (already used by the igem conda env)
+# Verify:
+python3 -c "from pyrosetta import init; init(); print('OK')"
+```
+
+No registration or license token is needed for the public quarterly mirror.
+Restart `lockr serve` after installing so the API picks it up.
+
 ## Using the tool
 
 Activate the environment first:
@@ -40,7 +60,7 @@ lockr serve
 lockr serve --port 8001    # if 8000 is already taken by something else
 ```
 
-It should provide a local link for you to paste into your browser to get started! The web app has two tabs, Scanner (for the liability scan, the suggested variant, and grafting the binder into the lucCage latch) and Calculator (for the fold-change prediction).
+It should provide a local link for you to paste into your browser to get started! The web app has two tabs: Scanner (for the charge scanning, new binder suggestion, and grafting program) and Calculator (for fold-change predictions).
 
 Grafting needs PyRosetta, which isn't installed by default since it's a ~500MB download. Everything else works fine without it, the graft button just stays disabled until it's there. See `INSTALL.md` for the one-line install if you want that feature.
 

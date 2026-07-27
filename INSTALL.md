@@ -12,10 +12,7 @@ pip install -e .
 
 ## Grafting feature (optional)
 
-The Scanner's "Graft into lucCage" step needs PyRosetta, a ~500MB structural
-modeling package that isn't installed by default. Everything else in the
-tool works without it, if it's missing, the graft button is simply disabled
-with a note pointing back here.
+The Scanner's "Graft into lucCage" step needs PyRosetta, and it is not installed by default because it's a ~500mb download.. Everything else in the software works without it, and if it is not downloaded, then the graft button is disabled.
 
 ```bash
 conda activate igem
