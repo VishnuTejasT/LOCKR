@@ -116,6 +116,36 @@ class ChargeResult:
 
 
 @dataclass
+class HelixIssue:
+    # severity is "blocking" (cannot graft), "warning" (costs stability) or "info".
+    position: int | None
+    severity: str
+    kind: str
+    message: str
+
+
+@dataclass
+class CyclizationEvidence:
+    # Sequence can't prove cyclization, only that the residues for it are present.
+    possibly_cyclic: bool
+    cysteine_positions: list[int] = field(default_factory=list)
+    signals: list[str] = field(default_factory=list)
+
+
+@dataclass
+class HelixReport:
+    sequence: str
+    helix_confidence: float
+    band: str
+    mean_propensity: float
+    hydrophobic_moment: float
+    salt_bridges: list[tuple[int, int]] = field(default_factory=list)
+    issues: list[HelixIssue] = field(default_factory=list)
+    cyclization: CyclizationEvidence | None = None
+    graft_blocked: bool = False
+
+
+@dataclass
 class Liability:
     position: int
     residue: str

@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from lockr.engine import helix as helix_engine
 from lockr.engine import liability
 
 from ..errors import ApiError
 from ..schemas.scan import (
-    AcidicResidue, HelixFlag, KckPenalty, PerPosition, ScanRequest, ScanResponse,
-    ScanResultItem, SuggestRequest, SuggestResponse, SuggestedVariant, Substitution,
+    AcidicResidue, CyclizationOut, HelixCheck, HelixFlag, HelixIssueOut, KckPenalty,
+    PerPosition, ScanRequest, ScanResponse, ScanResultItem, SuggestRequest, SuggestResponse,
+    SuggestedVariant, Substitution,
 )
 
 router = APIRouter()
@@ -49,8 +51,34 @@ def _kck_note(band: str, has_acidic_residues: bool) -> str:
     return _KCK_NOTES[band]
 
 
+_HELIX_BLOCKED_WARNING = ("This binder does not look graftable as a helix, see the structure check. "
+                          "The charge results below are still valid, but grafting will not work "
+                          "until the shape issue is resolved.")
+_HELIX_WEAK_WARNING = ("Helix confidence is low. The lucCage latch can template a helix, so this "
+                       "is not fatal, but confirm the binder is helical before trusting the graft.")
+_CYCLIC_WARNING = ("This sequence has the residues for a cyclic or stapled peptide. If yours is "
+                   "cyclized, it cannot be grafted into the latch as a linear segment.")
+
 _NO_PRESERVE_WARNING = ("No preserve_positions were set, so this suggestion may have changed residues "
                         "needed for target binding, double-check before using it.")
+
+
+def _helix_check(report) -> HelixCheck:
+    return HelixCheck(
+        helix_confidence=report.helix_confidence,
+        band=report.band,
+        mean_propensity=report.mean_propensity,
+        hydrophobic_moment=report.hydrophobic_moment,
+        salt_bridges=[[i, j] for i, j in report.salt_bridges],
+        issues=[HelixIssueOut(position=i.position, severity=i.severity, kind=i.kind, message=i.message)
+                for i in report.issues],
+        cyclization=CyclizationOut(
+            possibly_cyclic=report.cyclization.possibly_cyclic,
+            cysteine_positions=report.cyclization.cysteine_positions,
+            signals=report.cyclization.signals,
+        ),
+        graft_blocked=report.graft_blocked,
+    )
 
 
 def _parse_mutation(mutation: str) -> Substitution:
@@ -63,6 +91,10 @@ def _parse_mutation(mutation: str) -> Substitution:
 
 def _scan_one(sequence: str, start: int, end: int, ph: float, policy: str,
               preserve_positions: list[int]) -> ScanResultItem:
+    # Shape first: the latch is a helix, so a binder that isn't one can't be grafted no matter
+    # how clean its charge profile is.
+    helix_report = helix_engine.analyze_helix(sequence)
+
     census = liability.scan_liability(sequence, preserve_positions=preserve_positions, ph=ph)
     windowed = liability.scan_liability(sequence, preserve_positions=preserve_positions, ph=ph,
                                         window=(start, end))
@@ -84,15 +116,27 @@ def _scan_one(sequence: str, start: int, end: int, ph: float, policy: str,
 
     variant = liability.suggest_variant(sequence, preserve_positions=preserve_positions, policy=policy,
                                         window=(start, end))
+    # Point substitutions re-run the same structure check: swapping D/E changes helix propensity,
+    # capping and salt bridges, so the variant's shape has to be re-earned, not assumed.
+    variant_helix = helix_engine.analyze_helix(variant.sequence)
     suggested = [SuggestedVariant(
         sequence=variant.sequence,
         substitutions=[_parse_mutation(m) for m in variant.mutations],
         liability_score=variant.liability_score,
         liability_band=variant.liability_band,
         estimated_kck_nm=variant.K_CK_estimate * 1e9,
+        helix=_helix_check(variant_helix),
+        helix_delta=variant_helix.helix_confidence - helix_report.helix_confidence,
+        helix_warnings=helix_engine.compare_for_variant(sequence, variant.sequence),
     )]
 
     warnings = []
+    if helix_report.graft_blocked:
+        warnings.append(_HELIX_BLOCKED_WARNING)
+    elif helix_report.band == "unlikely helical":
+        warnings.append(_HELIX_WEAK_WARNING)
+    if helix_report.cyclization.possibly_cyclic:
+        warnings.append(_CYCLIC_WARNING)
     if len(sequence) > _LONG_SEQUENCE_THRESHOLD:
         warnings.append(_LONG_SEQUENCE_WARNING)
     if variant.mutations and not preserve_positions:
@@ -111,6 +155,7 @@ def _scan_one(sequence: str, start: int, end: int, ph: float, policy: str,
                                          note=_kck_note(windowed.liability_band, bool(windowed.liabilities))),
         per_position=per_position,
         helix_flags=helix_flags,
+        helix=_helix_check(helix_report),
         suggested_variants=suggested,
         warnings=warnings,
     )
@@ -139,11 +184,15 @@ def suggest(request: SuggestRequest) -> SuggestResponse:
     start, end = request.sensitive_window.clamped(length)
     variant = liability.suggest_variant(request.sequence, preserve_positions=request.preserve_positions,
                                         policy=request.substitution_policy, window=(start, end))
+    variant_helix = helix_engine.analyze_helix(variant.sequence)
     suggested = SuggestedVariant(
         sequence=variant.sequence,
         substitutions=[_parse_mutation(m) for m in variant.mutations],
         liability_score=variant.liability_score,
         liability_band=variant.liability_band,
         estimated_kck_nm=variant.K_CK_estimate * 1e9,
+        helix=_helix_check(variant_helix),
+        helix_delta=variant_helix.helix_confidence - helix_engine.analyze_helix(request.sequence).helix_confidence,
+        helix_warnings=helix_engine.compare_for_variant(request.sequence, variant.sequence),
     )
     return SuggestResponse(suggested_variants=[suggested])

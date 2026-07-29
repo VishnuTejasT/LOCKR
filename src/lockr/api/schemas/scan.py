@@ -59,6 +59,30 @@ class HelixFlag(BaseModel):
     issue: str
 
 
+class HelixIssueOut(BaseModel):
+    position: int | None = None
+    severity: str
+    kind: str
+    message: str
+
+
+class CyclizationOut(BaseModel):
+    possibly_cyclic: bool
+    cysteine_positions: list[int] = []
+    signals: list[str] = []
+
+
+class HelixCheck(BaseModel):
+    helix_confidence: float
+    band: str
+    mean_propensity: float
+    hydrophobic_moment: float
+    salt_bridges: list[list[int]] = []
+    issues: list[HelixIssueOut] = []
+    cyclization: CyclizationOut
+    graft_blocked: bool
+
+
 class Substitution(BaseModel):
     position: int
     from_: str = Field(alias="from")
@@ -73,6 +97,10 @@ class SuggestedVariant(BaseModel):
     liability_score: float
     liability_band: str
     estimated_kck_nm: float
+    helix: HelixCheck | None = None
+    # How the variant's helix confidence moved relative to the scanned sequence.
+    helix_delta: float | None = None
+    helix_warnings: list[str] = []
 
 
 class KckPenalty(BaseModel):
@@ -92,6 +120,7 @@ class ScanResultItem(BaseModel):
     predicted_kck_penalty: KckPenalty
     per_position: list[PerPosition]
     helix_flags: list[HelixFlag]
+    helix: HelixCheck | None = None
     suggested_variants: list[SuggestedVariant]
     warnings: list[str] = []
 

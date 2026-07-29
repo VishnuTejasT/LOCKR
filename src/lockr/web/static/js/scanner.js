@@ -494,6 +494,7 @@ function scanRenderVariant(result) {
     scanEl("scan-variant-kck-estimate-nm").textContent = "N/A";
     scanEl("scan-variant-copy-row").style.display = "none";
     scanEl("scan-variant-kck-send-btn").style.display = "none";
+    scanEl("scan-variant-helix").style.display = "none";
     return;
   }
 
@@ -529,6 +530,96 @@ function scanRenderVariant(result) {
 
   scanEl("scan-variant-copy-row").style.display = "flex";
   scanEl("scan-variant-copy-sequence").textContent = variant.sequence;
+
+  scanRenderVariantHelix(result, variant);
+}
+
+// Swapping D/E out changes the shape as well as the charge, so the variant gets its own
+// structure verdict and the specific reasons it might be worse than the original.
+function scanRenderVariantHelix(result, variant) {
+  const row = scanEl("scan-variant-helix");
+  if (!variant.helix || !result.helix) {
+    row.style.display = "none";
+    return;
+  }
+  row.style.display = "block";
+
+  const before = Math.round(result.helix.helix_confidence * 100);
+  const after = Math.round(variant.helix.helix_confidence * 100);
+  const direction = after > before ? "better" : after < before ? "worse" : "unchanged";
+  scanEl("scan-variant-helix-delta").textContent = `${before}% → ${after}% (${direction})`;
+
+  const warnEl = scanEl("scan-variant-helix-warnings");
+  warnEl.innerHTML = "";
+  (variant.helix_warnings || []).forEach((w) => {
+    const div = document.createElement("div");
+    div.className = "help-text";
+    div.style.color = "var(--warning-700)";
+    div.style.marginTop = "4px";
+    div.textContent = w;
+    warnEl.appendChild(div);
+  });
+}
+
+// --- Structure check -------------------------------------------------------
+// Runs ahead of the charge story: a binder that isn't helical can't thread the latch, so
+// the shape verdict is shown first and gates the graft step.
+
+const HELIX_BAND_CLASS = {
+  "likely helical": "badge-Low",
+  uncertain: "badge-Moderate",
+  "unlikely helical": "badge-High",
+};
+
+const HELIX_SEVERITY_COLOR = {
+  blocking: "var(--danger-700, #b42318)",
+  warning: "var(--warning-700)",
+  info: "var(--text-muted, #667085)",
+};
+
+function scanRenderHelix(result) {
+  const helix = result.helix;
+  const card = scanEl("helix-card");
+  if (!helix) {
+    card.style.display = "none";
+    return;
+  }
+  card.style.display = "block";
+
+  const pct = Math.round(helix.helix_confidence * 100);
+  scanEl("helix-confidence").textContent = `${pct}% helix confidence`;
+
+  const badge = scanEl("helix-band-badge");
+  badge.className = `badge ${HELIX_BAND_CLASS[helix.band] || ""}`;
+  badge.textContent = helix.band.toUpperCase();
+
+  const bridges = helix.salt_bridges.length;
+  scanEl("helix-detail").textContent =
+    `Mean helix propensity ${roundSig(helix.mean_propensity, 2)}, ` +
+    `amphipathicity ${roundSig(helix.hydrophobic_moment, 2)}, ` +
+    `${bridges} stabilizing salt ${bridges === 1 ? "bridge" : "bridges"} (i to i+3/i+4).`;
+
+  const issuesEl = scanEl("helix-issues");
+  issuesEl.innerHTML = "";
+  helix.issues.forEach((issue) => {
+    const div = document.createElement("div");
+    div.className = "help-text";
+    div.style.color = HELIX_SEVERITY_COLOR[issue.severity] || "";
+    div.style.marginTop = "4px";
+    div.textContent = issue.severity === "blocking" ? `Blocks grafting: ${issue.message}` : issue.message;
+    issuesEl.appendChild(div);
+  });
+
+  const cyclicEl = scanEl("helix-cyclic");
+  if (helix.cyclization.possibly_cyclic) {
+    cyclicEl.style.display = "block";
+    cyclicEl.textContent =
+      `This might be a cyclic peptide (${helix.cyclization.signals.join("; ")}). ` +
+      "Sequence alone can't tell, so check your construct. A cyclized binder can't be grafted " +
+      "into the latch as a linear segment.";
+  } else {
+    cyclicEl.style.display = "none";
+  }
 }
 
 // --- Grafting -------------------------------------------------------------
@@ -554,29 +645,75 @@ function graftUpdateAvailabilityUI() {
   graftUpdateButtonState();
 }
 
-// The sequence grafting actually uses: the suggested variant if it changed
-// anything, otherwise the sequence as scanned.
-function graftUsingSequence(result) {
+// The optimized variant, when the suggestion actually changed something.
+function graftOptimizedVariant(result) {
   const variant = result.suggested_variants && result.suggested_variants[0];
-  if (variant && variant.sequence !== result.sequence) {
-    return { sequence: variant.sequence, kckNm: variant.estimated_kck_nm, label: "optimized variant" };
+  if (variant && variant.sequence !== result.sequence) return variant;
+  return null;
+}
+
+// The sequence grafting actually uses. When an optimized variant exists the
+// user picks between it and the sequence they entered, otherwise there is only
+// one candidate.
+function graftUsingSequence(result) {
+  const variant = graftOptimizedVariant(result);
+  const wantsOriginal = scanEl("graft-source-original").checked;
+  if (variant && !wantsOriginal) {
+    return {
+      sequence: variant.sequence, kckNm: variant.estimated_kck_nm,
+      label: "optimized variant", helix: variant.helix,
+    };
   }
-  return { sequence: result.sequence, kckNm: result.estimated_kck_nm, label: "scanned sequence" };
+  return {
+    sequence: result.sequence, kckNm: result.estimated_kck_nm,
+    label: "scanned sequence", helix: result.helix,
+  };
+}
+
+function graftRefreshUsingLabel() {
+  if (!graftState.lastScanResult) return;
+  const using = graftUsingSequence(graftState.lastScanResult);
+  graftState.kckNm = using.kckNm;
+  graftState.kckLabel = using.label;
+  scanEl("graft-using-label").textContent = `Using: ${using.sequence}`;
 }
 
 function graftOnNewScanResult(result) {
   graftState.lastScanResult = result;
-  const using = graftUsingSequence(result);
-  graftState.kckNm = using.kckNm;
-  graftState.kckLabel = using.label;
-  scanEl("graft-using-label").textContent = `Using: ${using.sequence}`;
+
+  // Offer the choice only when the two sequences actually differ.
+  const variant = graftOptimizedVariant(result);
+  scanEl("graft-source-choice").style.display = variant ? "block" : "none";
+  if (variant) {
+    scanEl("graft-source-original-seq").textContent = result.sequence;
+    scanEl("graft-source-optimized-seq").textContent = variant.sequence;
+    scanEl("graft-source-optimized").checked = true;
+  }
+
+  graftRefreshUsingLabel();
   graftReset();
   graftUpdateButtonState();
 }
 
+// A binder with a blocking shape problem can't thread the latch, so the graft button goes
+// away rather than burning two minutes of PyRosetta on a result that can't be right.
+function graftStructureBlock() {
+  if (!graftState.lastScanResult) return null;
+  const helix = graftUsingSequence(graftState.lastScanResult).helix;
+  if (!helix || !helix.graft_blocked) return null;
+  const reasons = helix.issues.filter((i) => i.severity === "blocking").map((i) => i.message);
+  return `Can't graft this sequence. ${reasons.join(" ")}`;
+}
+
 function graftUpdateButtonState() {
   const available = graftState.status && graftState.status.available;
-  scanEl("graft-submit").disabled = !available || !graftState.lastScanResult;
+  const blocked = graftStructureBlock();
+
+  const blockEl = scanEl("graft-structure-block");
+  blockEl.style.display = blocked ? "block" : "none";
+  blockEl.textContent = blocked || "";
+
+  scanEl("graft-submit").disabled = !available || !graftState.lastScanResult || Boolean(blocked);
 }
 
 function graftReadRequest() {
@@ -725,14 +862,6 @@ function graftCopySequence() {
   );
 }
 
-function graftValidate() {
-  const seq = document.querySelector("#graft-sequence-display").textContent;
-  if (!seq) return;
-  scanEl("scan-sequence").value = seq;
-  renderLiveAnnotation();
-  scanEl("scan-sequence").scrollIntoView({ behavior: "smooth", block: "center" });
-}
-
 function graftDownloadPdb() {
   if (!graftState.jobId) return;
   window.open(`${API_BASE}/graft/download/${graftState.jobId}`, "_blank");
@@ -745,9 +874,16 @@ function initGraft() {
     scanEl("graft-specific-position").style.display = e.target.checked ? "block" : "none";
   });
 
+  // Switching source invalidates whatever was grafted from the other one.
+  ["graft-source-original", "graft-source-optimized"].forEach((id) => {
+    scanEl(id).addEventListener("change", () => {
+      graftRefreshUsingLabel();
+      graftReset();
+    });
+  });
+
   scanEl("graft-submit").addEventListener("click", graftSubmit);
   scanEl("graft-copy-btn").addEventListener("click", graftCopySequence);
-  scanEl("graft-validate-btn").addEventListener("click", graftValidate);
   scanEl("graft-download-btn").addEventListener("click", graftDownloadPdb);
 }
 
@@ -789,6 +925,7 @@ function scanRenderResults(result) {
     warningsEl.appendChild(div);
   });
 
+  scanRenderHelix(result);
   scanRenderAnnotatedSequence(result);
   scanRenderContributionChart(result);
   scanRenderVariant(result);

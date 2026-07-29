@@ -124,6 +124,18 @@
         </div>
 
         <div id="scan-results" style="display:none;">
+          <div class="card" id="helix-card">
+            <h2 class="font-display" style="font-size:22px;">Structure check</h2>
+            <p class="help-text" style="margin-top:4px;">The lucCage latch is a helix, so the binder has to be one too. This is a propensity estimate from sequence, not a structure prediction, treat it as a first filter rather than proof.</p>
+            <div style="display:flex; align-items:baseline; gap:10px; margin-top:12px; flex-wrap:wrap;">
+              <span class="font-mono" id="helix-confidence" style="font-size:18px; font-weight:600;"></span>
+              <span class="badge" id="helix-band-badge"></span>
+            </div>
+            <div class="help-text" id="helix-detail" style="margin-top:6px;"></div>
+            <div id="helix-issues" style="margin-top:10px;"></div>
+            <div id="helix-cyclic" class="help-text" style="display:none; margin-top:10px; color:var(--warning-700);"></div>
+          </div>
+
           <div class="card">
             <div class="font-display" id="scan-band-label" style="font-size:32px;"></div>
             <div class="liability-gauge"><div class="liability-gauge-marker" id="scan-gauge-marker"></div></div>
@@ -171,6 +183,10 @@
             <div style="margin-top:8px;">
               Liability score: <span class="font-mono" id="scan-variant-score-before"></span> → <span class="font-mono" id="scan-variant-score-after"></span>
             </div>
+            <div id="scan-variant-helix" class="help-text" style="display:none; margin-top:8px;">
+              Helix confidence: <span class="font-mono" id="scan-variant-helix-delta"></span>
+              <div id="scan-variant-helix-warnings" style="margin-top:6px;"></div>
+            </div>
             <div id="scan-variant-copy-row" style="display:none; margin-top:12px; align-items:center; gap:8px;">
               <span class="font-mono" id="scan-variant-copy-sequence" style="word-break:break-all;"></span>
               <button type="button" id="scan-variant-copy-btn" class="btn-secondary" style="height:28px; padding:0 10px; font-size:13px;">Copy</button>
@@ -202,11 +218,25 @@
 
           <div class="card">
             <h2 class="font-display" style="font-size:22px;">Step 2: Graft into lucCage</h2>
-            <p class="help-text" style="margin-top:4px;">Thread your (optimized) binder sequence into the lucCage latch and find the best position.</p>
+            <p class="help-text" style="margin-top:4px;">Thread your binder sequence into the lucCage latch and find the best position.</p>
+
+            <div id="graft-source-choice" style="display:none; margin-top:12px;">
+              <div class="help-text" style="font-weight:500;">Which sequence do you want to graft?</div>
+              <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer; margin-top:6px;">
+                <input type="radio" name="graft-source" id="graft-source-original" value="original" style="width:auto; height:auto; margin-top:3px; cursor:pointer;">
+                <span>Your binder as entered<br><span class="font-mono help-text" id="graft-source-original-seq"></span></span>
+              </label>
+              <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer; margin-top:6px;">
+                <input type="radio" name="graft-source" id="graft-source-optimized" value="optimized" checked style="width:auto; height:auto; margin-top:3px; cursor:pointer;">
+                <span>Charge-optimized variant<br><span class="font-mono help-text" id="graft-source-optimized-seq"></span></span>
+              </label>
+            </div>
 
             <div id="graft-using-label" class="help-text font-mono" style="margin-top:12px;"></div>
 
             <div id="graft-unavailable-note" class="help-text" style="display:none; margin-top:8px; color:var(--warning-700);">Grafting requires PyRosetta, see the Install Guide for setup.</div>
+
+            <div id="graft-structure-block" class="help-text" style="display:none; margin-top:8px; color:var(--warning-700);"></div>
 
             <details class="advanced" style="margin-top:8px;">
               <summary>Scan specific position</summary>
@@ -248,7 +278,6 @@
               </div>
               <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
                 <button type="button" id="graft-copy-btn" class="btn-secondary" style="height:28px; padding:0 10px; font-size:13px;">Copy sequence</button>
-                <button type="button" id="graft-validate-btn" class="btn-secondary" style="height:28px; padding:0 10px; font-size:13px;">→ Validate</button>
                 <button type="button" id="graft-download-btn" class="btn-secondary" style="height:28px; padding:0 10px; font-size:13px;">Download grafted PDB</button>
                 <button type="button" id="graft-kck-send-btn" class="btn-secondary" style="height:28px; padding:0 10px; font-size:13px; display:none;">→ Send K_CK to Calculator</button>
               </div>
