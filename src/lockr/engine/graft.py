@@ -11,8 +11,10 @@ positions, not a structure-refinement step.
 
 from __future__ import annotations
 
+import platform
 import tempfile
 import time
+from importlib.metadata import PackageNotFoundError, version as _pkg_version
 
 from .models import GraftAtResult, GraftResult
 
@@ -52,7 +54,50 @@ _TOLERANCE = 50.0
 GOOD_SCORE_MAX = _V10_SCORE + _TOLERANCE
 MARGINAL_SCORE_MAX = _ORIGINAL_SCORE + _TOLERANCE
 
+# What GOOD_SCORE_MAX/MARGINAL_SCORE_MAX above were actually measured on,
+# see the calibration block's comment. Prefix-matched, not exact, since
+# patch-level PyRosetta versions likely don't matter but a major/minor
+# mismatch might. PyPI's version string is "2026.3", not zero-padded
+# "2026.03", matched that exactly here to avoid a false-positive mismatch.
+_CALIBRATED_PYROSETTA_VERSION = "2026.3"
+_CALIBRATED_PLATFORM = ("Darwin", "arm64")  # macOS, Apple Silicon
+
 _initialized = False
+
+
+def _calibration_mismatch_warning() -> str | None:
+    """None if this looks like the machine the REU thresholds above were
+    calibrated on, otherwise a warning explaining why good/marginal/poor
+    verdicts here may not mean what they claim to.
+
+    Nothing else in this module checks this before handing back a verdict,
+    Rosetta scores are not portable across platforms or PyRosetta builds
+    (see the module docstring), so a verdict computed on different hardware
+    is silently comparing today's REU score against thresholds measured on
+    someone else's machine.
+    """
+    mismatches = []
+
+    system, machine = platform.system(), platform.machine()
+    if (system, machine) != _CALIBRATED_PLATFORM:
+        mismatches.append(f"running on {system}/{machine}, calibrated on "
+                          f"{_CALIBRATED_PLATFORM[0]}/{_CALIBRATED_PLATFORM[1]}")
+
+    try:
+        installed_version = _pkg_version("pyrosetta")
+    except PackageNotFoundError:
+        installed_version = None
+    if installed_version is not None and not installed_version.startswith(_CALIBRATED_PYROSETTA_VERSION):
+        mismatches.append(f"PyRosetta {installed_version} installed, calibrated on "
+                          f"{_CALIBRATED_PYROSETTA_VERSION}")
+
+    if not mismatches:
+        return None
+    return ("Calibration mismatch: " + "; ".join(mismatches) + ". GOOD_SCORE_MAX/"
+           "MARGINAL_SCORE_MAX were measured on a specific machine/PyRosetta build "
+           "and are not portable, re-run find_best_graft_position() on the two "
+           "reference binders in the module docstring and update those constants "
+           "before trusting good/marginal/poor verdicts here.")
 
 
 def _ensure_init() -> None:
@@ -135,6 +180,7 @@ def find_best_graft_position(
         grafted_pdb_path=grafted_pdb_path,
         binder_length=binder_length,
         runtime_seconds=time.time() - start_time,
+        calibration_warning=_calibration_mismatch_warning(),
     )
 
 
@@ -153,4 +199,5 @@ def graft_at_position(binder_sequence: str, template_pdb_path: str, position: in
         verdict=_verdict(score),
         grafted_sequence=pose.sequence(),
         grafted_pdb_path=_save_temp_pdb(pose),
+        calibration_warning=_calibration_mismatch_warning(),
     )

@@ -23,9 +23,13 @@ def test_sweep_operating_point_matches_known_eclipse_fold_change():
     assert body["operating_point"]["x"] == 500.0
     assert body["operating_point"]["fold_change"] == pytest.approx(expected_fc)
     assert len(body["points"]) == 5
-    # key-limited at this operating point: fold-change barely moves across decades.
+    # Corrected finding: this model has an interior optimum, not a plateau,
+    # more lucKey past a point raises background faster than signal, so
+    # fold-change drops substantially (not "barely moves") as lucKey rises
+    # from 1nM to 10000nM here.
     fcs = [p["fold_change"] for p in body["points"]]
-    assert max(fcs) - min(fcs) < 1.0
+    assert max(fcs) - min(fcs) > 5.0
+    assert fcs == sorted(fcs, reverse=True)
 
 
 def test_sweep_dominance_ratio_tracks_swept_param():

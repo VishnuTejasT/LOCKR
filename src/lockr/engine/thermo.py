@@ -9,9 +9,10 @@ and applies to any LucCage based sensor system. All eclispe specific numbers liv
 from __future__ import annotations
 
 import math
+from typing import Callable
 
 import numpy as np
-from scipy.optimize import curve_fit
+from scipy.optimize import curve_fit, minimize_scalar
 
 from .models import DEFAULT_PARAMS, FoldChangeResult, LodResult, RegimeResult, ScanResult, SensorParams
 
@@ -27,8 +28,15 @@ def k_open_eff(K_open: float, pull: float, theta: float) -> float:
 
 
 def _f_open(k_open: float, params: SensorParams) -> float:
-    # Fraction of cages in the open, signal-competent state.
-    return k_open / (1 + k_open + params.luckey_ratio)
+    # Fraction of cages in the open+lucKey-bound (signal-competent) state.
+    # Three-state partition function: closed (weight 1), open-apo (weight
+    # k_open), open+key-bound (weight k_open*luckey_ratio, since key binding
+    # is conditional on the cage already being open). Luminescence tracks
+    # the open+key-bound population specifically, not "open" generally, an
+    # open-but-empty cage has an exposed SmBiT with no LgBiT partner, so it
+    # doesn't glow.
+    weight_signal = k_open * params.luckey_ratio
+    return weight_signal / (1 + k_open + weight_signal)
 
 
 def fold_change(target_conc: float, Kd: float, pull: float,
@@ -131,45 +139,116 @@ def kd_from_ddg(kd_ref: float, ddg: float, RT: float = DEFAULT_PARAMS.RT) -> flo
     return kd_ref * math.exp(ddg / RT)
 
 
-# How hard the regime diagnostic pushes K_open to test if it moves fold-change.
-_K_OPEN_PROBE_FACTOR = 30.0
-# Sensitivity thresholds on that probe, general heuristic, not biology.
-_KEY_LIMITED_BELOW = 0.02
-_KOPEN_LIMITED_ABOVE = 0.08
+# Search ranges for the local-optimum probes below, generous but bounded so
+# the optimizer can't wander into non-physical territory (K_open > 0.5 means
+# a cage that's open more than half the time at rest, already a failed
+# design; lucKey from 1 pM to 1 mM covers essentially any real assay).
+_K_OPEN_SEARCH_BOUNDS = (1e-6, 0.5)
+_LUCKEY_SEARCH_BOUNDS = (1e-12, 1e-3)
+# Below this relative gain, moving an axis to its own local optimum isn't
+# worth chasing, general heuristic, not biology.
+_NEGLIGIBLE_GAIN = 0.02
+# One axis needs at least this multiple of the other's achievable gain
+# before it's called out as "the" limiting axis, rather than "mixed".
+_DOMINANT_MARGIN = 2.0
+
+
+def _best_along(vary: Callable[[float], SensorParams], low: float, high: float,
+                pull: float) -> tuple[float, float]:
+    """Best achievable saturating fold-change by varying one parameter
+    (via `vary(x) -> SensorParams`) in log-space over [low, high], pull and
+    everything else held fixed.
+
+    Log-space because K_open/lucKey span many orders of magnitude and the
+    curve is unimodal in the log of either one (see the ratio sweep in the
+    _f_open fix commit), a linear-space search would barely sample the
+    interesting region.
+    """
+    def neg_mfc(log_x: float) -> float:
+        return -_saturating_fc(pull, vary(10 ** log_x))
+
+    res = minimize_scalar(neg_mfc, bounds=(math.log10(low), math.log10(high)), method="bounded")
+    # minimize_scalar returns numpy scalars, cast to plain float so
+    # downstream comparisons (e.g. `is True`) get real Python bools, not
+    # numpy.bool_.
+    return float(10 ** res.x), float(-res.fun)
 
 
 def diagnose_regime(params: SensorParams = DEFAULT_PARAMS, pull: float = 10.0) -> RegimeResult:
-    """Key-limited vs K_open-limited, for any K_open/K_CK/lucKey.
+    """Which lever, K_open or lucKey/K_CK, actually has headroom left, and
+    which direction to move it, for any K_open/K_CK/lucKey.
 
-    Probes K_open directly rather than comparing raw magnitudes against the
-    lucKey/K_CK ratio, since a magnitude compare alone doesn't discriminate.
-    pull=10 is a generic default (literature LOCKR designs run ~10-20x), not
-    tied to any one sensor.
+    The old version compared a fixed 30x K_open probe against a fixed
+    threshold, which implicitly assumed "more open" and "more lucKey" always
+    help. They don't, past a point, more lucKey raises background as fast as
+    signal, this model has a real interior optimum, not a monotonic ramp
+    (see the _f_open docstring). So instead this finds each axis's actual
+    local optimum via a bounded search and reports how much headroom (if
+    any) is left in each direction, and which way to move.
     """
     ratio = params.luckey_ratio
     mfc = _saturating_fc(pull, params)
 
-    probed = SensorParams(K_open=params.K_open * _K_OPEN_PROBE_FACTOR,
-                          K_CK=params.K_CK, lucKey=params.lucKey, RT=params.RT)
-    mfc_probed = _saturating_fc(pull, probed)
-    rel_change = abs(mfc_probed - mfc) / mfc
+    best_k_open, mfc_k_open_opt = _best_along(
+        lambda k: SensorParams(K_open=k, K_CK=params.K_CK, lucKey=params.lucKey, RT=params.RT),
+        *_K_OPEN_SEARCH_BOUNDS, pull)
+    best_luckey, mfc_luckey_opt = _best_along(
+        lambda lk: SensorParams(K_open=params.K_open, K_CK=params.K_CK, lucKey=lk, RT=params.RT),
+        *_LUCKEY_SEARCH_BOUNDS, pull)
 
-    if rel_change < _KEY_LIMITED_BELOW:
-        regime, helps = "key-limited", False
-        verdict = (f"Key-limited: lucKey/K_CK = {ratio:.1f} dominates over "
-                   f"K_open = {params.K_open:g}; fold-change tops out near "
-                   f"{mfc:.1f}x at this pull and latch tuning won't move it. "
-                   f"Raise lucKey or tighten K_CK instead.")
-    elif rel_change > _KOPEN_LIMITED_ABOVE:
+    gain_k_open = max(0.0, (mfc_k_open_opt - mfc) / mfc)
+    gain_luckey = max(0.0, (mfc_luckey_opt - mfc) / mfc)
+
+    def _sentence(s: str) -> str:
+        # str.capitalize() lowercases everything but the first letter, which
+        # mangles "K_open"/"K_CK"; this only touches the first character.
+        return s[0].upper() + s[1:] if s else s
+
+    def _k_open_move() -> str:
+        word = "raising" if best_k_open > params.K_open else "lowering"
+        return (f"{word} K_open from {params.K_open:.3g} toward {best_k_open:.3g} "
+                f"(engineer the latch for a {'weaker' if word == 'raising' else 'stronger'} "
+                f"closed state) would take fold-change to about {mfc_k_open_opt:.1f}x")
+
+    def _luckey_move() -> str:
+        word = "raising" if best_luckey > params.lucKey else "lowering"
+        return (f"{word} lucKey from {params.lucKey * 1e9:.3g} nM toward "
+                f"{best_luckey * 1e9:.3g} nM (or the equivalent move in K_CK) "
+                f"would take fold-change to about {mfc_luckey_opt:.1f}x")
+
+    if gain_k_open < _NEGLIGIBLE_GAIN and gain_luckey < _NEGLIGIBLE_GAIN:
+        regime, helps = "mixed", False
+        verdict = (f"Near-optimal: lucKey/K_CK = {ratio:.1f} and K_open = {params.K_open:g} "
+                   f"are both already close to their best achievable values at pull={pull:g} "
+                   f"(fold-change {mfc:.1f}x, ceiling ~{max(mfc, mfc_k_open_opt, mfc_luckey_opt):.1f}x "
+                   f"from either alone). The remaining lever is pull itself, redesigning the "
+                   f"cage-latch allosteric coupling, not lucKey/K_CK or K_open.")
+        recommendations = [
+            "K_open and lucKey/K_CK are both already close to their local optimum for this pull.",
+            "Raise pull (allosteric coupling strength) to go further; that means redesigning the "
+            "cage-latch geometry, not the concentrations or K_CK.",
+        ]
+    elif gain_luckey >= gain_k_open * _DOMINANT_MARGIN:
+        regime, helps = "key-limited", gain_k_open >= _NEGLIGIBLE_GAIN
+        verdict = (f"Key-limited: lucKey/K_CK = {ratio:.1f} has the most headroom, "
+                   f"{_luckey_move()} (+{gain_luckey * 100:.0f}%). "
+                   f"K_open tuning alone buys at most +{gain_k_open * 100:.0f}%.")
+        recommendations = [_sentence(_luckey_move()) + "."]
+        if not helps:
+            recommendations.append("Latch (K_open) mutations will not meaningfully raise fold-change here.")
+    elif gain_k_open >= gain_luckey * _DOMINANT_MARGIN:
         regime, helps = "K_open-limited", True
-        verdict = (f"K_open-limited: lucKey/K_CK = {ratio:.1f} is comparable to "
-                   f"K_open, so latch tuning materially affects fold-change.")
+        verdict = (f"K_open-limited: {_k_open_move()} (+{gain_k_open * 100:.0f}%). "
+                   f"lucKey/K_CK tuning alone buys at most +{gain_luckey * 100:.0f}%.")
+        recommendations = [_sentence(_k_open_move()) + "."]
     else:
-        regime, helps = "mixed", True
-        verdict = (f"Mixed: lucKey/K_CK = {ratio:.1f}, both the latch and the "
-                   f"key constrain fold-change here.")
+        regime, helps = "mixed", gain_k_open >= _NEGLIGIBLE_GAIN
+        verdict = (f"Mixed: lucKey/K_CK = {ratio:.1f}, both axes have comparable headroom, "
+                   f"{_k_open_move()} (+{gain_k_open * 100:.0f}%), and separately "
+                   f"{_luckey_move()} (+{gain_luckey * 100:.0f}%).")
+        recommendations = [_sentence(_k_open_move()) + ".", _sentence(_luckey_move()) + "."]
 
-    return RegimeResult(ratio, params.K_open, regime, mfc, helps, verdict)
+    return RegimeResult(ratio, params.K_open, regime, mfc, helps, verdict, recommendations)
 
 
 def fit_pull_strength(target_conc, fc_measured, Kd: float,

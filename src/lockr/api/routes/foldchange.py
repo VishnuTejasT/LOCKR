@@ -19,21 +19,6 @@ _UNDEFINED_RESULT_MESSAGE = "Parameters produce an undefined result, check K_ope
 _NM_TO_M = 1e-9
 
 
-_RECOMMENDATIONS = {
-    "key-limited": [
-        "Increase lucKey to raise the dominance ratio.",
-        "Improve cage-key affinity by lowering K_CK.",
-        "Latch (K_open) mutations will not raise fold-change in this scenario.",
-    ],
-    "K_open-limited": [
-        "Engineer the latch for stronger allosteric coupling (raise pull).",
-        "This isn't key-limited, so lucKey increase will give minimal returns.",
-    ],
-    "mixed": [
-        "Both the latch (K_open) and the key (lucKey/K_CK) are limiting factors, so improvements to either variable will help!"
-    ],
-}
-
 _LIMITING_FACTOR = {
     "key-limited": "luckey_over_kck",
     "K_open-limited": "k_open",
@@ -108,7 +93,7 @@ def foldchange(request: FoldChangeRequest) -> FoldChangeResponse:
         regime=regime_result.regime.replace("-", "_"),
         limiting_factor=_LIMITING_FACTOR[regime_result.regime],
         verdict=regime_result.verdict,
-        recommendations=_RECOMMENDATIONS[regime_result.regime],
+        recommendations=regime_result.recommendations,
         warnings=warnings,
         lod_2x_nm=_to_nm(lod_result.lod_2x),
         lod_3x_nm=_to_nm(lod_result.lod_3x),

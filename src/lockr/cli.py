@@ -6,6 +6,7 @@ import argparse
 import json
 import sys
 import textwrap
+import time
 
 
 def _err(msg: str) -> None:
@@ -101,11 +102,29 @@ def _print_labeled_seq(label: str, seq: str) -> None:
         print(f"{indent}{line}")
 
 
+def _print_helix_check(helix) -> None:
+    if helix is None:
+        return
+    pct = round(helix.helix_confidence * 100)
+    print(f"Structure:  {pct}% helix confidence  [{helix.band}]")
+    bridges = len(helix.salt_bridges)
+    print(f"            mean propensity {helix.mean_propensity:.2g}, "
+          f"amphipathicity {helix.hydrophobic_moment:.2g}, "
+          f"{bridges} stabilizing salt {'bridge' if bridges == 1 else 'bridges'} (i to i+3/i+4)")
+    for issue in helix.issues:
+        prefix = "Blocks grafting: " if issue.severity == "blocking" else ""
+        print(f"Issue:      {prefix}{issue.message}")
+    if helix.cyclization.possibly_cyclic:
+        signals = "; ".join(helix.cyclization.signals)
+        print(f"Cyclic:     possible cyclic peptide ({signals})")
+
+
 def _print_scan_result(r, suggest: bool) -> None:
     _print_labeled_seq("Sequence:   ", r.sequence)
     if r.id and r.id != "seq_1":
         print(f"ID:         {r.id}")
     print(f"Length:     {r.length}")
+    _print_helix_check(r.helix)
     print(f"Liability:  {r.liability_score:.3f}  [{r.liability_band}]")
     print(f"Net charge: {r.net_charge:.1f}")
     kck_m = r.estimated_kck_nm * 1e-9
@@ -123,6 +142,13 @@ def _print_scan_result(r, suggest: bool) -> None:
         _print_labeled_seq("Suggested:  ", v.sequence)
         if subs:
             print(f"Mutations:  {subs}")
+        if v.helix is not None and r.helix is not None:
+            before = round(r.helix.helix_confidence * 100)
+            after = round(v.helix.helix_confidence * 100)
+            direction = "better" if after > before else "worse" if after < before else "unchanged"
+            print(f"Structure:  {before}% -> {after}% helix confidence ({direction})")
+            for w in v.helix_warnings:
+                print(f"Warning:    {w}")
         print(f"Liability:  {v.liability_score:.3f}  [{v.liability_band}]")
         print(f"K_CK:       {v.estimated_kck_nm * 1e-9:.3e} M  ({v.estimated_kck_nm:.3g} nM)")
     print()
@@ -175,6 +201,134 @@ def _print_fc_result(r) -> None:
         print()
         for w in r.warnings:
             print(f"Warning: {w}")
+
+
+_LATCH_START = 325
+_LATCH_END = 359
+
+_PYROSETTA_INSTALL_MESSAGE = (
+    "PyRosetta is not installed. See INSTALL.md for setup: "
+    "pip install pyrosetta --find-links https://west.rosettacommons.org/pyrosetta/quarterly/release"
+)
+
+
+def _cmd_graft_status(args) -> None:
+    from importlib.metadata import PackageNotFoundError, version as pkg_version
+    from importlib.resources import files
+
+    from lockr.engine import graft
+
+    available = graft.PYROSETTA_AVAILABLE
+    version = None
+    if available:
+        try:
+            version = pkg_version("pyrosetta")
+        except PackageNotFoundError:
+            pass
+    template_bundled = files("lockr.data").joinpath("lucCage_template_clean.pdb").is_file()
+    calibration_warning = graft._calibration_mismatch_warning() if available else None
+
+    if args.json:
+        print(json.dumps({"available": available, "version": version,
+                          "template_bundled": template_bundled,
+                          "calibration_warning": calibration_warning}, indent=2))
+    else:
+        print(f"PyRosetta:  {'installed' if available else 'not installed'}"
+              f"{f' ({version})' if version else ''}")
+        print(f"Template:   {'bundled' if template_bundled else 'missing'}")
+        if calibration_warning:
+            print(f"Warning:    {calibration_warning}")
+
+
+def _print_graft_result(position: int, score: float, verdict: str, all_scores, sequence: str,
+                        pdb_path: str, runtime_seconds: float,
+                        calibration_warning: str | None) -> None:
+    print(f"Best position: {position}  (REU {score:.2f})  [{verdict}]")
+    if len(all_scores) > 1:
+        print(f"Positions scanned: {len(all_scores)}")
+    _print_labeled_seq("Grafted:    ", sequence)
+    print(f"PDB:        {pdb_path}")
+    print(f"Runtime:    {runtime_seconds:.1f}s")
+    if calibration_warning:
+        print(f"Warning:    {calibration_warning}")
+
+
+def _cmd_graft(args) -> None:
+    if args.status:
+        _cmd_graft_status(args)
+        return
+
+    if not args.sequence:
+        _err("provide a sequence to graft, or use --status")
+
+    import shutil
+    from importlib.resources import files
+
+    from pydantic import ValidationError
+
+    from lockr.api.errors import _clean_pydantic_message
+    from lockr.api.schemas.graft import GraftRequest
+    from lockr.engine import graft
+
+    if not graft.PYROSETTA_AVAILABLE:
+        _err(_PYROSETTA_INSTALL_MESSAGE)
+
+    try:
+        request = GraftRequest(
+            sequence=args.sequence,
+            scan_all=args.position is None,
+            specific_position=args.position,
+            latch_start=args.latch_start,
+            latch_end=args.latch_end,
+        )
+    except ValidationError as e:
+        first = e.errors()[0]
+        _err(_clean_pydantic_message(first["msg"]))
+
+    template_path = str(files("lockr.data").joinpath("lucCage_template_clean.pdb"))
+
+    try:
+        if request.scan_all:
+            result = graft.find_best_graft_position(
+                request.sequence, template_path,
+                latch_start=request.latch_start, latch_end=request.latch_end,
+            )
+            position, score, verdict = result.best_position, result.best_score, result.verdict
+            all_scores = result.all_scores
+            grafted_sequence, grafted_pdb_path = result.grafted_sequence, result.grafted_pdb_path
+            runtime_seconds = result.runtime_seconds
+            calibration_warning = result.calibration_warning
+        else:
+            start = time.time()
+            at_result = graft.graft_at_position(request.sequence, template_path, request.specific_position)
+            position, score, verdict = at_result.position, at_result.score, at_result.verdict
+            all_scores = [(at_result.position, at_result.score)]
+            grafted_sequence, grafted_pdb_path = at_result.grafted_sequence, at_result.grafted_pdb_path
+            runtime_seconds = time.time() - start
+            calibration_warning = at_result.calibration_warning
+    except ValueError as e:
+        _err(str(e))
+
+    out_path = args.out or grafted_pdb_path
+    if args.out:
+        shutil.move(grafted_pdb_path, args.out)
+
+    if args.json:
+        data = {
+            "best_position": position,
+            "best_score": score,
+            "verdict": verdict,
+            "all_scores": [{"position": p, "score": s} for p, s in all_scores],
+            "grafted_sequence": grafted_sequence,
+            "grafted_pdb_path": out_path,
+            "runtime_seconds": runtime_seconds,
+            "binder_length": len(request.sequence),
+            "calibration_warning": calibration_warning,
+        }
+        print(json.dumps(data, indent=2))
+    else:
+        _print_graft_result(position, score, verdict, all_scores, grafted_sequence, out_path,
+                            runtime_seconds, calibration_warning)
 
 
 def main() -> None:
@@ -233,6 +387,24 @@ def main() -> None:
                          "with --k-target, or omitted entirely to assume saturating target")
     fc.add_argument("--json", action="store_true", help="output raw JSON instead of a plain-text summary")
 
+    # lockr graft
+    graft = subparsers.add_parser("graft", help="thread a binder into the lucCage latch (needs PyRosetta)")
+    graft.add_argument("sequence", nargs="?",
+                       help="binder amino-acid sequence to graft, standard residues only, max 35aa. "
+                            "Omit this and use --status instead to check PyRosetta availability.")
+    graft.add_argument("--position", type=int, default=None,
+                       help="graft at this specific 1-indexed latch position instead of scanning for "
+                            "the best one (default: scan every position in the latch window)")
+    graft.add_argument("--latch-start", type=int, default=_LATCH_START, dest="latch_start",
+                       help=f"first residue of the latch window on the template (default: {_LATCH_START})")
+    graft.add_argument("--latch-end", type=int, default=_LATCH_END, dest="latch_end",
+                       help=f"last residue of the latch window on the template (default: {_LATCH_END})")
+    graft.add_argument("--out", metavar="FILE",
+                       help="path to save the grafted PDB (default: a temp file, path printed)")
+    graft.add_argument("--status", action="store_true",
+                       help="check whether PyRosetta is installed and the template is bundled, then exit")
+    graft.add_argument("--json", action="store_true", help="output raw JSON instead of a plain-text summary")
+
     args = parser.parse_args()
 
     if args.command == "serve":
@@ -243,6 +415,8 @@ def main() -> None:
         _cmd_scan(args)
     elif args.command == "fc":
         _cmd_fc(args)
+    elif args.command == "graft":
+        _cmd_graft(args)
 
 
 if __name__ == "__main__":

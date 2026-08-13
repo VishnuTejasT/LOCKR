@@ -18,13 +18,17 @@ def test_kopen_scenarios_crossover_matches_v11_finding():
 
 
 def test_kopen_scenarios_moderate_preset_never_helps_at_500nm_luckey():
+    # Corrected finding: under the old additive formula these barely moved
+    # fold-change (<10%). Under the corrected model, destabilizing K_open
+    # mutations substantially hurt fold-change here (raising background
+    # faster than signal), never help, but "barely move" is no longer true.
     response = client.post("/kopen-scenarios", json=_BASE_REQUEST)
     body = response.json()
     moderate = [s for s in body["scenarios"] if s["preset"] == "moderate"]
     assert len(moderate) == 3
     assert all(s["helps"] != "yes" for s in moderate)
     for s in moderate:
-        assert abs(s["fold_change"] - body["baseline"]["fold_change"]) / body["baseline"]["fold_change"] < 0.1
+        assert (body["baseline"]["fold_change"] - s["fold_change"]) / body["baseline"]["fold_change"] > 0.5
 
 
 def test_kopen_scenarios_baseline_matches_max_fold_change():
@@ -32,7 +36,7 @@ def test_kopen_scenarios_baseline_matches_max_fold_change():
     body = response.json()
     assert body["baseline"]["mutations"] == 0
     assert body["baseline"]["helps"] == "unchanged"
-    assert body["baseline"]["fold_change"] == pytest.approx(11.0, rel=2e-3)
+    assert body["baseline"]["fold_change"] == pytest.approx(7.4061, rel=1e-4)
 
 
 def test_kopen_scenarios_never_help_below_crossover():

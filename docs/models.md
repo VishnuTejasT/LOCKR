@@ -178,7 +178,10 @@ K_open-limited verdict.
 `"key-limited"`, `"K_open-limited"`, `"mixed"`), `max_fold_change`,
 `latch_tuning_helps: bool`, `verdict: str` (a human-readable sentence, this
 is the one field in the whole engine meant to be shown verbatim to a user,
-not just consumed programmatically).
+not just consumed programmatically), `recommendations: list[str]`
+(direction-aware action items generated per call, e.g. "raise" or "lower"
+lucKey depending on which side of the optimum the current parameters sit
+on, not a static per-regime lookup table).
 
 ---
 

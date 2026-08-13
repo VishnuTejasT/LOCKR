@@ -77,6 +77,7 @@ def graft_status() -> GraftStatusResponse:
         available=graft.PYROSETTA_AVAILABLE,
         version=_pyrosetta_version(),
         template_bundled=_template_bundled(),
+        calibration_warning=graft._calibration_mismatch_warning() if graft.PYROSETTA_AVAILABLE else None,
     )
 
 
@@ -105,6 +106,7 @@ async def run_graft(request: GraftRequest) -> GraftResponse:
                 verdict=result.verdict, all_scores=all_scores,
                 grafted_sequence=result.grafted_sequence, job_id=job_id,
                 runtime_seconds=result.runtime_seconds, binder_length=result.binder_length,
+                calibration_warning=result.calibration_warning,
             )
         else:
             start = time.time()
@@ -117,6 +119,7 @@ async def run_graft(request: GraftRequest) -> GraftResponse:
                 verdict=at_result.verdict, all_scores=[ScoredPosition(position=at_result.position, score=at_result.score)],
                 grafted_sequence=at_result.grafted_sequence, job_id=job_id,
                 runtime_seconds=time.time() - start, binder_length=len(request.sequence),
+                calibration_warning=at_result.calibration_warning,
             )
     except ValueError as e:
         raise ApiError("NO_VALID_POSITIONS", str(e))

@@ -1,7 +1,7 @@
 # LOCKR Thermodynamics Design Tool
 
 
-This software is a CPU-only thermodynamic engine for LOCKR biosensors. It essentially works by scanning a binding region in the intended latch, and identifies liabilities and problems that can restrict cage-key thermodynamic interactioons. It provides a fix, and outputs a final K_CK (Cage-Key) score. Then, the user can use the K_CK score from the scanner in the Calculator section to calculate fold-change and other variables to determine whether their LOCKR design is a good fit. Both sections utlize the same physics, so they share the same thermodynamic engine.
+This software is a CPU-only thermodynamic engine for LOCKR biosensors. It essentially works by scanning a binding region in the intended latch, and identifies liabilities and problems that can restrict cage-key thermodynamic interactioons. Before it gets to charge liabilities, it first checks whether the binder is even shaped right, since the lucCage latch is a helix, so a binder has to be helical to thread into it. It provides a fix, and outputs a final K_CK (Cage-Key) score. Then, the user can use the K_CK score from the scanner in the Calculator section to calculate fold-change and other variables to determine whether their LOCKR design is a good fit. Both sections utlize the same physics, so they share the same thermodynamic engine.
 
 ## Prerequisites
 
@@ -60,13 +60,15 @@ lockr serve
 lockr serve --port 8001    # if 8000 is already taken by something else
 ```
 
-It should provide a local link for you to paste into your browser to get started! The web app has two tabs: Scanner (for the charge scanning, new binder suggestion, and grafting program) and Calculator (for fold-change predictions).
+It should provide a local link for you to paste into your browser to get started! The web app has two tabs: Scanner (structure pre-check, charge scanning, binder suggestions, and grafting) and Calculator (fold-change predictions).
+
+Before running the charge scan, the Scanner checks whether the binder is helical enough to be grafted into LucCage's latch, using per-residue helix propensity, capping, and amphipathicity to flag sequences that look cyclic instead of linear. It's a propensity estimate from sequence alone, not a structural prediction, so a low score is merely a warning.
 
 Grafting needs PyRosetta, which isn't installed by default since it's a ~500MB download. Everything else works fine without it, the graft button just stays disabled until it's there. See `INSTALL.md` for the one-line install if you want that feature.
 
 ### Option 2, command line
 
-Scan a binder for cage-key liabilities:
+Scan a binder for cage-key liabilities. This also runs the same helical structure pre-check as the web app first, so the output leads with a Structure line (helix confidence, band, and any shape issues) before the charge liability numbers:
 
 ```bash
 lockr scan SEQUENCE
@@ -91,12 +93,22 @@ lockr fc --k-ck 10 --k-open 0.001 --pull 10 --luckey 500 --json
 
 Leave `--k-target`/`--target` off to assume the target is fully saturating. All values are in nM except from `--k-open` and `--pull`, which are dimensionless.
 
+Graft a binder into the lucCage latch (needs PyRosetta, see above):
+
+```bash
+lockr graft SEQUENCE                             # scans every latch position and keeps the best
+lockr graft SEQUENCE --position 327              # graft at one specific position instead of scanning all possible residues
+lockr graft SEQUENCE --latch-start 325 --latch-end 359  # override the latch window on the template
+lockr graft SEQUENCE --out grafted.pdb           # saves the grafted structure to a specific path
+lockr graft SEQUENCE --json
+lockr graft --status                             # check whether PyRosetta and the template are even available
+```
+
 ### More help
 
 ```bash
 lockr scan --help
 lockr fc --help
 lockr serve --help
+lockr graft --help
 ```
-
-There's no `lockr graft` command yet, grafting only exists in the web app for now, through the Scanner tab.

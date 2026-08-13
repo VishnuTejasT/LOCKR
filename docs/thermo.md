@@ -29,10 +29,27 @@ into a formula I can actually compute.
   `lucKey=500e-9`, `RT=0.592`. These are *my* base-scaffold's measured/assumed
   values. A different LOCKR team's cage would plug in their own `SensorParams`
   and every function here works unchanged.
-- **Heuristic, not biology:** `_K_OPEN_PROBE_FACTOR=30`,
-  `_KEY_LIMITED_BELOW=0.02`, `_KOPEN_LIMITED_ABOVE=0.08` inside
-  `diagnose_regime`. These are sensitivity thresholds I picked so the
-  classifier behaves sensibly, there's no paper that says "0.08" is special.
+- **Heuristic, not biology:** `_K_OPEN_SEARCH_BOUNDS`, `_LUCKEY_SEARCH_BOUNDS`,
+  `_NEGLIGIBLE_GAIN=0.02`, `_DOMINANT_MARGIN=2.0` inside `diagnose_regime`.
+  The search bounds are generous but bounded so the optimizer stays in
+  physically sane territory, the gain/margin numbers are thresholds I
+  picked so the classifier behaves sensibly, there's no paper that says
+  "2.0x" is special.
+
+**Correction (see git history):** `_f_open`'s denominator originally added
+`luckey_ratio` on its own (`k_open / (1 + k_open + luckey_ratio)`). That's
+wrong, the open+lucKey-bound state's statistical weight is
+`k_open * luckey_ratio` (key binding is *conditional* on the cage already
+being open, a sequential equilibrium multiplies, it doesn't add). The same
+additive form was also in my original hand-derivation
+(`ECLIPSE Thermodynamics Documentation.pdf`, Script 7), so this wasn't just
+a coding slip, it was a real error in the underlying physics that both the
+doc and the code shared. Fixing it changed real numbers throughout this
+file (v1.0's "~11x fold-change at pull=10" is now ~7.41x) and flipped
+ECLIPSE's regime classification from "key-limited" to "mixed", see the
+worked examples below and `diagnose_regime`'s rewritten section. That PDF
+still states the old numbers and needs a separate, manual correction, this
+codebase can't fix a PDF.
 
 ---
 
@@ -157,21 +174,35 @@ open+lucKey-bound state. Always small (this is a rare, productive state).
 
 **The math:**
 ```
-f_open = k_open / (1 + k_open + luckey_ratio)
+weight_signal = k_open * luckey_ratio
+f_open = weight_signal / (1 + k_open + weight_signal)
 ```
-This comes from normalizing three states, closed (weight 1), open-but-empty
-(weight `k_open`), open-and-lucKey-bound (weight `k_open * luckey_ratio`,
-collapsed in here as part of the denominator's `luckey_ratio` term), into a
-fraction. The signal-producing population scales with `k_open` in the
-numerator.
+This is a proper three-state partition function: closed (weight 1),
+open-but-empty (weight `k_open`), open-and-lucKey-bound (weight
+`k_open * luckey_ratio`, since key binding is *conditional* on the cage
+already being open, a sequential equilibrium, `[OK]/[C] = ([O]/[C]) *
+([Key]/K_CK) = k_open * luckey_ratio` by plain mass action). The numerator
+is the open+key-bound population specifically, not "open" in general, an
+open-but-empty cage has an exposed SmBiT with no LgBiT partner, it doesn't
+glow.
 
 **Worked example:** baseline (no target) at ECLIPSE defaults:
 ```python
 _f_open(1e-3, DEFAULT_PARAMS)   # K_open itself, no pull applied
-# -> 1.960745867728084e-05
+# -> 0.04757373929590866
 ```
-Only about 2 in 100,000 cages are in the productive state at rest, that's
-the dark/background signal level.
+About 4.8% of cages are in the productive state at rest, that's the
+dark/background signal level.
+
+**Gotcha (this was a real bug, not hypothetical):** the earlier version of
+this function added `luckey_ratio` on its own instead of multiplying it by
+`k_open`. That formula is monotonically *decreasing* toward zero as lucKey
+concentration grows without bound, i.e. it implied adding more of a
+bimolecular binding partner eventually suppresses its own complex, which is
+backwards. A bimolecular association can only saturate (plateau), never
+reverse, as one partner's concentration increases. If you ever see
+`luckey_ratio` show up anywhere *not* multiplied by an opening-equilibrium
+term, that's the same bug back again.
 
 **Gotchas:** This is named with a leading underscore because it's an internal
 building block, `fold_change` and `f_base` are the public functions you
@@ -206,9 +237,11 @@ fold_change = f_open(K_open_eff) / f_open(K_open)     # signal / baseline
 **Worked example (ECLIPSE v1.0, saturating target):**
 ```python
 fold_change(1e-6, 100e-12, 10)
-# -> 10.996844113923162
+# -> 7.405718615614029
 ```
-Matches the documented "~11x fold change at pull=10" for v1.0.
+Corrected from the pre-`_f_open`-fix "~11x", see the file-level correction
+note above. This is now the actual number the corrected model predicts,
+not (yet) checked against real wet-lab titration data.
 
 **Gotchas:** Note `Kd` only enters through `theta`, at saturating target
 concentration, `theta -> 1` regardless of how tight `Kd` is, so a *tighter*
@@ -248,9 +281,9 @@ fold_change_detail(1e-6, 100e-12, 10)
 #   target_conc=1e-06, Kd=1e-10, pull=10,
 #   theta=0.9999000099990001,
 #   K_open_eff=0.01099900009999,
-#   f_base=1.960745867728084e-05,
-#   f_signal=0.00021562016654424744,
-#   fold_change=10.996844113923162,
+#   f_base=0.04757373929590866,
+#   f_signal=0.3523177267180794,
+#   fold_change=7.405718615614029,
 # )
 ```
 
@@ -278,7 +311,7 @@ pull applied at all (`k_open` unmodified).
 **Worked example (ECLIPSE defaults):**
 ```python
 f_base()
-# -> 1.960745867728084e-05
+# -> 0.04757373929590866
 ```
 
 **Gotchas:** This is literally `_f_open(params.K_open, params)` with zero
@@ -345,16 +378,18 @@ just the public name for it.
 **Worked example (real ECLIPSE numbers, both binders):**
 ```python
 max_fold_change(100e-12, 10)    # v1.0's Kd, pull=10
-# -> 10.997843602360273
+# -> 7.4061499039077505
 max_fold_change(42.21e-15, 10)  # v2.2's Kd, SAME pull
-# -> 10.997843602360273   (identical!)
+# -> 7.4061499039077505   (identical!)
 ```
 v1.0 and v2.2 hit the *same* ceiling at the same `pull`, even though v2.2's
 `Kd` is 2369x tighter, proving the point above: tighter `Kd` buys
 sensitivity (lower EC50), not a higher ceiling. At `pull=20` both go to
-`~21`, at `pull=30` both go to `~31`, the pattern is roughly `max_fc ≈
-1 + pull` whenever `lucKey/K_CK` dominates `K_open` (the "key-limited"
-regime), which is exactly ECLIPSE's situation.
+`~10.66`, at `pull=30` both go to `~12.62`. Unlike the pre-fix formula, this
+isn't `1 + pull` at ECLIPSE's actual `K_open`/`lucKey`/`K_CK`, ECLIPSE turns
+out to be a **mixed** regime, not purely "key-limited", `1 + pull` is only
+the ceiling in the limit where either `K_open` or `lucKey/K_CK` is pushed to
+its own local optimum (see `diagnose_regime` below).
 
 **Gotchas:** Don't be tempted to "fix" the unused `Kd` parameter, it's
 intentional, and removing it would break every call site that treats
@@ -394,13 +429,20 @@ statistically derived detection limit (e.g. not based on noise/3σ).
 ```python
 scan_dose_response(100e-12, 10)
 # ScanResult(label='', Kd=1e-10, pull=10,
-#            max_fc=10.997743644523021,
-#            ec50=1.0092715146305697e-10,
-#            lod=1.0092715146305698e-11)
+#            max_fc=7.4061067724649705,
+#            ec50=6.662654524581163e-11,
+#            lod=6.662654524581163e-12)
 ```
-EC50 comes out almost exactly at `Kd` (1.009e-10 vs `Kd=1e-10`), that's a
-sanity check this should always roughly satisfy, since half-occupancy by
-definition happens near `Kd`.
+
+**Gotcha, changed by the `_f_open` fix:** EC50 used to come out almost
+exactly at `Kd` under the old (buggy) additive formula, that was noted here
+as a sanity check. It no longer does (6.66e-11 vs `Kd=1e-10`, about 0.67x).
+That's expected, not a new bug: half-occupancy (`theta=0.5`) still happens
+exactly at `target_conc=Kd` by definition, but fold-change is now a
+genuinely nonlinear (saturating) function of `theta` through the corrected
+`_f_open`, so "half-max fold-change" and "half-occupancy" no longer land at
+the same target concentration. Don't resurrect the old "EC50 ≈ Kd" check,
+it was a symptom of the bug, not a real property of this model.
 
 **Gotchas:** `lod = ec50 * 0.1` is a placeholder heuristic, explicitly called
 out as such, if you ever have real assay noise data, you'd want to replace
@@ -586,11 +628,17 @@ actually move my fold-change at all?* Or is something else (the lucKey/K_CK
 side) the real bottleneck?
 
 **Why it exists:** This is the practical payoff of the whole thermodynamic
-model, it tells you where to spend your limited engineering effort. If
-you're "key-limited," redesigning the latch is wasted effort; you should
-raise lucKey concentration or tighten `K_CK` instead. If you're
-"K_open-limited," latch engineering (RFdiffusion on the cage itself) is
-exactly the right lever.
+model, it tells you where to spend your limited engineering effort, and
+which direction to push it.
+
+**Rewritten along with the `_f_open` fix.** The old version assumed "more
+open" and "more lucKey" always help, and only ever recommended raising
+things. That assumption came from the same additive bug in `_f_open`,
+under the corrected model, `max_fold_change` is **not monotonic** in either
+`K_open` or `lucKey/K_CK`, past a point, more lucKey raises the dark
+background as fast as the signal, so there's a real interior optimum, not a
+one-way ramp. Sometimes the right move is to *lower* lucKey or *tighten*
+the latch, not raise either one, and the old version could never say that.
 
 **Inputs:**
 - `params: SensorParams`, the system you're diagnosing.
@@ -599,54 +647,85 @@ exactly the right lever.
 
 **Output:** `RegimeResult` dataclass: `luckey_dominance_ratio`, `K_open`,
 `regime` (one of `"key-limited"`, `"K_open-limited"`, `"mixed"`),
-`max_fold_change`, `latch_tuning_helps: bool`, and a human-readable `verdict`
-string.
+`max_fold_change`, `latch_tuning_helps: bool`, a human-readable `verdict`
+string, and now `recommendations: list[str]` (direction-aware, generated
+per call, not a static lookup table).
 
-**The math/logic:** This doesn't just compare `lucKey/K_CK` against `K_open`
-as raw numbers (a magnitude-only comparison doesn't actually tell you whether
-tuning `K_open` *does* anything to the output). Instead it **probes**:
-1. Compute `mfc` = `max_fold_change` at the *current* `K_open`.
-2. Compute `mfc_probed` = `max_fold_change` with `K_open` artificially
-   boosted 30x (`_K_OPEN_PROBE_FACTOR`).
-3. Look at the relative change, `|mfc_probed - mfc| / mfc`.
-4. If that change is tiny (`< 0.02`), boosting `K_open` 30x barely moved the
-   needle → **key-limited**, latch tuning won't help.
-5. If the change is large (`> 0.08`), `K_open` actually matters →
-   **K_open-limited**.
-6. In between → **mixed**, both sides matter somewhat.
+**The math/logic:** For each axis (`K_open`, `lucKey`), find that axis's
+*actual local optimum* via a bounded search (`scipy.optimize.minimize_scalar`
+over `log10(param)`, see `_best_along`), holding everything else fixed, and
+compute the relative gain available by moving there:
+1. `gain_k_open` = best achievable relative improvement in `max_fold_change`
+   by moving `K_open` alone to its optimum (search range `1e-6` to `0.5`).
+2. `gain_luckey` = same, moving `lucKey` alone (search range `1 pM` to
+   `1 mM`).
+3. If both gains are below `_NEGLIGIBLE_GAIN` (`0.02`), neither axis has
+   real headroom left → **mixed**, `latch_tuning_helps=False`, verdict
+   points at `pull` (the allosteric coupling / cage-latch geometry) as the
+   only remaining lever.
+4. If one gain is at least `_DOMINANT_MARGIN` (`2.0x`) the other, that axis
+   is named the limiting one (**key-limited** or **K_open-limited**), with
+   a direction-aware recommendation (raise or lower, whichever the optimum
+   search found).
+5. Otherwise **mixed**: both axes have comparable headroom, recommendations
+   list both moves.
 
-**Worked example, real ECLIPSE default (500 nM lucKey, key-limited):**
+Log-space search because `K_open`/`lucKey` span many orders of magnitude and
+the curve is unimodal in the log of either one, a fixed linear step (or the
+old version's fixed 30x multiplier) can overshoot a nearby peak and come
+back down on the other side, wrongly reporting "no headroom" when a smaller
+move would have helped.
+
+**Worked example, real ECLIPSE default (500 nM lucKey):**
 ```python
 diagnose_regime(pull=10)
 # RegimeResult(
-#   luckey_dominance_ratio=50.0, K_open=0.001, regime='key-limited',
-#   max_fold_change=10.997843602360273, latch_tuning_helps=False,
-#   verdict="Key-limited: lucKey/K_CK = 50.0 dominates over K_open = 0.001; "
-#           "fold-change tops out near 11.0x at this pull and latch tuning "
-#           "won't move it. Raise lucKey or tighten K_CK instead.")
+#   luckey_dominance_ratio=50.0, K_open=0.001, regime='mixed',
+#   max_fold_change=7.4061499039077505, latch_tuning_helps=True,
+#   verdict="Mixed: lucKey/K_CK = 50.0, both axes have comparable headroom, "
+#           "lowering K_open from 0.001 toward 1e-06 (engineer the latch "
+#           "for a stronger closed state) would take fold-change to about "
+#           "11.0x (+48%), and separately lowering lucKey from 500 nM "
+#           "toward 0.001 nM (or the equivalent move in K_CK) would take "
+#           "fold-change to about 10.9x (+47%).",
+#   recommendations=[
+#     "Lowering K_open from 0.001 toward 1e-06 ... would take fold-change to about 11.0x.",
+#     "Lowering lucKey from 500 nM toward 0.001 nM ... would take fold-change to about 10.9x."])
 ```
-This is ECLIPSE's actual situation: `lucKey/K_CK = 50`, and the diagnostic
-confirms that's the dominant constraint, not `K_open`.
+This inverts the old "key-limited, latch tuning won't help" conclusion:
+ECLIPSE's actual default is **mixed**, tightening *either* the latch or the
+key affinity buys a comparable ~47-48% improvement, and both moves are
+*toward tighter*, not toward more lucKey, the old advice's direction was
+backwards as well as its regime label.
 
 **Worked example, same cage, hypothetically dropping lucKey to 10 nM:**
 ```python
 diagnose_regime(SensorParams(lucKey=10e-9), pull=10)
 # RegimeResult(
-#   luckey_dominance_ratio=1.0, regime='K_open-limited',
-#   latch_tuning_helps=True,
-#   verdict='K_open-limited: lucKey/K_CK = 1.0 is comparable to K_open, so '
-#           'latch tuning materially affects fold-change.')
+#   luckey_dominance_ratio=1.0, regime='mixed',
+#   max_fold_change=10.784735812133071, latch_tuning_helps=False,
+#   verdict="Near-optimal: lucKey/K_CK = 1.0 and K_open = 0.001 are both "
+#           "already close to their best achievable values at pull=10 "
+#           "(fold-change 10.8x, ceiling ~11.0x from either alone). The "
+#           "remaining lever is pull itself, redesigning the cage-latch "
+#           "allosteric coupling, not lucKey/K_CK or K_open.")
 ```
-At low enough lucKey, the regime flips, now `K_open` is the lever worth
-pulling.
+At 10 nM lucKey this cage is already close to the best either axis alone
+can buy for `pull=10` (10.8x vs an ~11.0x ceiling), the old version called
+this "K_open-limited, latch tuning helps", which is no longer true, there's
+almost nothing left on that axis either.
 
 **Gotchas:**
-- The thresholds (`0.02`/`0.08`) and probe factor (`30x`) are heuristics I
-  picked, not biology, see the file-level note above. Don't quote them as
+- `_NEGLIGIBLE_GAIN` (`0.02`) and `_DOMINANT_MARGIN` (`2.0x`) are heuristics
+  I picked, not biology, see the file-level note above. Don't quote them as
   if they came from a paper.
 - `pull` here defaults to `10.0` as a generic round-number probe, distinct
   from any specific measured ECLIPSE pull value (which isn't separately
   documented in this codebase).
+- The search bounds (`K_open` in `[1e-6, 0.5]`, `lucKey` in `[1pM, 1mM]`)
+  are generous but real, if your actual design needs to search outside
+  them, widen `_K_OPEN_SEARCH_BOUNDS`/`_LUCKEY_SEARCH_BOUNDS`, don't just
+  eyeball a fixed-factor probe back in.
 
 ---
 

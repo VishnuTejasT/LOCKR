@@ -25,11 +25,16 @@ def test_regime_classification_runs_for_arbitrary_params(params):
     assert r.luckey_dominance_ratio == pytest.approx(params.luckey_ratio)
 
 
-def test_regime_flips_as_ratio_crosses_k_open():
-    high_ratio = SensorParams(K_open=1e-3, K_CK=1e-9, lucKey=1e-6)    # ratio 1000
-    low_ratio = SensorParams(K_open=1e-3, K_CK=1e-9, lucKey=1e-12)    # ratio 0.001
-    assert thermo.diagnose_regime(high_ratio).regime == "key-limited"
-    assert thermo.diagnose_regime(low_ratio).regime == "K_open-limited"
+def test_regime_flips_between_key_and_k_open_limited():
+    # Extreme lucKey/K_CK with a tight cage: the key axis has by far the
+    # most headroom (raising K_CK toward the key concentration helps a lot,
+    # K_open is already near its own optimum).
+    key_limited = SensorParams(K_open=1e-3, K_CK=1e-12, lucKey=500e-9)
+    # Leaky cage (large K_open) with an already-near-optimal ratio: the
+    # K_open axis has by far the most headroom instead.
+    k_open_limited = SensorParams(K_open=0.1, K_CK=1e-3, lucKey=500e-9)
+    assert thermo.diagnose_regime(key_limited).regime == "key-limited"
+    assert thermo.diagnose_regime(k_open_limited).regime == "K_open-limited"
 
 
 def test_max_fold_change_independent_of_kd():

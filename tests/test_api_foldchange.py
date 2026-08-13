@@ -8,8 +8,8 @@ from lockr.engine.models import DEFAULT_PARAMS
 client = TestClient(app)
 
 # ECLIPSE defaults (K_open=1e-3, K_CK=10nM, lucKey=500nM) at pull=10, the same
-# operating point docs/README.md's worked example pins (max_fold_change ~ 11.0,
-# regime "key-limited").
+# operating point docs/README.md's worked example pins (max_fold_change ~ 7.41,
+# regime "mixed", corrected from the pre-_f_open-fix "~11.0/key-limited").
 _BASE_REQUEST = {"k_ck": 10.0, "k_open": 0.001, "pull": 10.0, "luckey": 500.0}
 
 
@@ -23,8 +23,8 @@ def test_foldchange_reproduces_known_eclipse_default_numbers():
 
     assert body["fold_change"] == pytest.approx(expected_fc)
     assert body["dominance_ratio"] == pytest.approx(DEFAULT_PARAMS.luckey_ratio) == pytest.approx(50.0)
-    assert body["regime"] == "key_limited"
-    assert body["limiting_factor"] == "luckey_over_kck"
+    assert body["regime"] == "mixed"
+    assert body["limiting_factor"] == "mixed"
     assert body["verdict"] == expected_regime.verdict
     assert body["warnings"] == []
 
@@ -98,10 +98,13 @@ def test_foldchange_lod_null_when_target_assumed_saturating():
     assert body["ec50_nm"] is None
 
 
-def test_foldchange_lod_matches_documented_script7_v10_numbers():
+def test_foldchange_lod_under_corrected_model():
+    # Was checked against Script 7 (0.01008 nM / 0.1008 nM), which used the
+    # same additive _f_open formula this test suite corrected, that
+    # reference is stale, see tests/test_thermo_eclipse.py's module docstring.
     response = client.post("/foldchange", json={
         **_BASE_REQUEST, "k_target": 0.1, "target_conc": 50.0,  # k_target = 100pM = KD_V10
     })
     body = response.json()
-    assert body["lod_2x_nm"] == pytest.approx(0.01008, rel=0.15)
-    assert body["ec50_nm"] == pytest.approx(0.1008, rel=0.05)
+    assert body["lod_2x_nm"] == pytest.approx(0.01283, rel=0.05)
+    assert body["ec50_nm"] == pytest.approx(0.0676, rel=0.05)

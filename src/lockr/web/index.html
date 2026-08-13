@@ -514,11 +514,11 @@
                 <span class="rm-value" id="calc-metric-max">N/A</span>
               </div>
               <div class="result-metric">
-                <span class="rm-label">lucKey/K_CK ratio<span class="help-tip" tabindex="0">?<span class="help-tip-body">Not a fold-change target, it's a diagnostic. When your fold-change is close to this number, you're key-limited and tuning the latch (K_open) won't help; raising lucKey or lowering K_CK will. See the regime banner below for which one you're in.</span></span></span>
+                <span class="rm-label">lucKey/K_CK ratio<span class="help-tip" tabindex="0">?<span class="help-tip-body">Not a fold-change target, it's a diagnostic. K_open and lucKey/K_CK can each have their own local optimum, and it isn't always "raise lucKey" or "lower K_CK", sometimes tightening either one further actually hurts. See the regime banner below for which lever has real headroom right now, and which direction to move it.</span></span></span>
                 <span class="rm-value" id="calc-metric-ratio">N/A</span>
               </div>
               <div class="result-metric">
-                <span class="rm-label">% of that ratio<span class="help-tip" tabindex="0">?<span class="help-tip-body">How close your current fold-change is to the lucKey/K_CK ratio above. Closer to 100% means you're deep in the key-limited regime.</span></span></span>
+                <span class="rm-label">% of that ratio<span class="help-tip" tabindex="0">?<span class="help-tip-body">How close your current fold-change is to the lucKey/K_CK ratio above. Not a reliable regime indicator on its own, see the regime banner below.</span></span></span>
                 <span class="rm-value" id="calc-metric-fraction">N/A</span>
               </div>
               <div class="result-metric">

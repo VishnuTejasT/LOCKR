@@ -104,6 +104,7 @@ class RegimeResult:
     max_fold_change: float
     latch_tuning_helps: bool
     verdict: str
+    recommendations: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -189,6 +190,7 @@ class GraftResult:
     grafted_pdb_path: str
     binder_length: int
     runtime_seconds: float
+    calibration_warning: str | None = None
 
 
 @dataclass
@@ -200,6 +202,7 @@ class GraftAtResult:
     verdict: str
     grafted_sequence: str
     grafted_pdb_path: str
+    calibration_warning: str | None = None
 
 
 @dataclass

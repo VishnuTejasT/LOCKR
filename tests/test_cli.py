@@ -108,9 +108,9 @@ def test_scan_no_suggest_flag():
 def test_fc_eclipse_foldchange():
     r = _run("fc", "--k-ck", "10", "--k-open", "0.001", "--pull", "10", "--luckey", "500")
     assert r.returncode == 0
-    # fold-change ~11x
-    assert "11." in r.stdout or "11x" in r.stdout
-    assert "key-limited" in r.stdout
+    # fold-change ~7.41x (corrected from the pre-_f_open-fix "~11x")
+    assert "7.4" in r.stdout
+    assert "mixed" in r.stdout
 
 
 def test_fc_json_valid_and_matches_human_readable():
@@ -124,10 +124,10 @@ def test_fc_json_valid_and_matches_human_readable():
     assert f"{fc:.2f}" in r_text.stdout
 
 
-def test_fc_json_regime_key_limited():
+def test_fc_json_regime_mixed():
     r = _run("fc", "--k-ck", "10", "--k-open", "0.001", "--pull", "10", "--luckey", "500", "--json")
     data = json.loads(r.stdout)
-    assert data["regime"] in ("key_limited", "key-limited")
+    assert data["regime"] == "mixed"
 
 
 def test_fc_negative_kck_exits_nonzero():

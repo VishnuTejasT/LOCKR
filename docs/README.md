@@ -138,15 +138,18 @@ KD_V10 = 100e-12     # v1.0's measured Kd
 KD_V22 = 42.21e-15   # v2.2's Kd, from a -4.6 kcal/mol design improvement:
                      # thermo.kd_from_ddg(KD_V10, -4.6) == KD_V22
 
-thermo.max_fold_change(KD_V10, pull=10)   # -> ~11.0
-thermo.max_fold_change(KD_V22, pull=10)   # -> ~11.0  (same ceiling, set by the cage not Kd)
+thermo.max_fold_change(KD_V10, pull=10)   # -> ~7.41
+thermo.max_fold_change(KD_V22, pull=10)   # -> ~7.41  (same ceiling, set by the cage not Kd)
 ```
 v1.0 and v2.2 hit the *same* fold-change ceiling at a given `pull`, what
 v2.2's much tighter `Kd` actually buys is a lower EC50 (better sensitivity at
 low target concentration), not a bigger ceiling. `thermo.diagnose_regime()`
-on the ECLIPSE defaults confirms this design is `"key-limited"`, meaning
-`lucKey`/`K_CK` dominates the ceiling, not `K_open`, so v2.2's affinity gain
-sharpens sensitivity but doesn't raise the maximum achievable signal.
+on the ECLIPSE defaults confirms this design is `"mixed"`, meaning `K_open`
+and `lucKey`/`K_CK` have comparable headroom, tightening either one buys a
+comparable improvement, so v2.2's affinity gain sharpens sensitivity but
+doesn't by itself raise the maximum achievable signal (see the third science
+correction below, this used to say "key-limited" / "~11.0" before a
+formula bug in `_f_open` was fixed).
 
 That's the full loop: liability scan → variant suggestion → structural
 charge sanity check → coordinate-correct safety check against the protected
@@ -163,7 +166,7 @@ is the one stitching the modules' separate answers into one design decision.
 | `theta`, `k_open_eff`, `_f_open`, `fold_change` equations | `thermo.py` | Universal, general LOCKR three-state math |
 | `K_open=1e-3`, `K_CK=1e-8`, `lucKey=500e-9`, `RT=0.592` | `models.py` (`DEFAULT_PARAMS`) | Mine, ECLIPSE base scaffold's defaults, not laws of physics |
 | `KD_V10=100e-12`, `KD_V22=42.21e-15` | test files only, never the engine | Mine, real measured/derived v1.0 and v2.2 affinities |
-| `_K_OPEN_PROBE_FACTOR=30`, regime thresholds `0.02`/`0.08` | `thermo.py` | Heuristic I picked, not biology |
+| `_K_OPEN_SEARCH_BOUNDS`, `_LUCKEY_SEARCH_BOUNDS`, `_NEGLIGIBLE_GAIN=0.02`, `_DOMINANT_MARGIN=2.0` | `thermo.py` | Heuristic I picked, not biology |
 | `net_charge`, `helix_propensity`, pKa/Chou-Fasman tables | `charge.py` | Universal, standard textbook amino-acid chemistry |
 | Liability scan logic (`scan_liability`, `suggest_variant`) | `liability.py` | Universal mechanism, but every default it falls back to is mine |
 | `PFLDH_INTERFACE=[1,2,11,12,15]` | `calibration.py` | Mine, ECLIPSE's actual RFdiffusion-designed target contacts |
@@ -196,6 +199,31 @@ Both of these were caught and fixed in commit `104bd9c`
    `max_fold_change` (the realized fold-change at a given finite `pull`,
    `≈ 1+pull` in the key-limited regime). Same word, two genuinely different
    quantities, `luckey_dominance_ratio=50` does not mean "50x fold-change is
-   achievable"; the actual achievable ceiling at `pull=10` is `~11x`. Renamed
-   and tightened the comments/tests so it's unambiguous which one any given
-   number refers to going forward.
+   achievable"; the actual achievable ceiling at `pull=10` was computed as
+   `~11x` at the time (see correction 3 below, that specific number has
+   since changed again). Renamed and tightened the comments/tests so it's
+   unambiguous which one any given number refers to going forward.
+
+3. **The `_f_open` additive-vs-multiplicative bug.** `_f_open`'s
+   denominator added `luckey_ratio` on its own
+   (`k_open / (1 + k_open + luckey_ratio)`) instead of multiplying it by
+   `k_open`. The open+lucKey-bound state is only reachable *through* the
+   open state, key binding is conditional on the cage already being open,
+   so its statistical weight is `k_open * luckey_ratio` (plain mass
+   action: `[OK]/[C] = ([O]/[C]) * ([Key]/K_CK)`), not `k_open +
+   luckey_ratio`. The additive form implied that adding more lucKey
+   eventually *suppresses* signal instead of saturating it, which is
+   backwards for a bimolecular association. This wasn't just a code slip,
+   the same additive formula was in my original hand-derivation
+   (`ECLIPSE Thermodynamics Documentation.pdf`, Script 7), so both needed
+   correcting. Fixing it moved real numbers throughout this project:
+   v1.0's max fold-change at `pull=10` went from `~11.0` to `~7.41`, and
+   `diagnose_regime()` on ECLIPSE's defaults flipped from `"key-limited"`
+   (latch tuning doesn't help, raise lucKey) to `"mixed"` (tightening
+   *either* the latch or lucKey/K_CK helps by a comparable amount, the old
+   "raise lucKey" direction was backwards too, the corrected optimum is
+   *lower* lucKey). `diagnose_regime` itself was also rewritten, its old
+   fixed-30x-probe logic assumed tuning always helps in one direction,
+   which the corrected (non-monotonic) model breaks, see `docs/thermo.md`
+   for the full rewrite. The PDF still states the pre-fix numbers and needs
+   a separate manual correction, this codebase can't fix a PDF.

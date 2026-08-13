@@ -14,6 +14,7 @@ class GraftStatusResponse(BaseModel):
     available: bool
     version: str | None
     template_bundled: bool
+    calibration_warning: str | None = None
 
 
 class GraftRequest(BaseModel):
@@ -63,3 +64,4 @@ class GraftResponse(BaseModel):
     job_id: str
     runtime_seconds: float
     binder_length: int
+    calibration_warning: str | None = None
