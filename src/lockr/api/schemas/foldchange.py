@@ -36,8 +36,7 @@ class FoldChangeRequest(BaseModel):
 
     @model_validator(mode="after")
     def _target_fields_paired(self):
-        # These describe one real sample together (affinity + how much target
-        # is in it), one without the other isn't a computable state.
+        # Affinity and target amount describe one real sample together; one without the other isn't computable.
         if (self.k_target is None) != (self.target_conc is None):
             raise ValueError("K_target (binder-target affinity) and target concentration must be "
                              "provided together, or both left blank to assume saturating target")

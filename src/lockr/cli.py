@@ -93,8 +93,6 @@ _SEQ_WRAP_WIDTH = 60
 
 
 def _print_labeled_seq(label: str, seq: str) -> None:
-    # Long sequences print as one giant line otherwise, wrap and indent
-    # continuation lines under the label instead.
     indent = " " * len(label)
     lines = textwrap.wrap(seq, _SEQ_WRAP_WIDTH) or [""]
     print(f"{label}{lines[0]}")
@@ -335,12 +333,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="lockr")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # lockr serve
     serve = subparsers.add_parser("serve", help="run the LOCKR API locally")
     serve.add_argument("--port", type=int, default=8000,
                        help="local port to serve the web UI and API on (default: 8000)")
 
-    # lockr scan
     scan = subparsers.add_parser("scan", help="scan a sequence for CK-binding liability")
     scan.add_argument("sequence", nargs="?",
                       help="amino-acid sequence to scan, standard residues only (e.g. LISDAELEAIFAEELDC). "
@@ -365,7 +361,6 @@ def main() -> None:
                       help="also print a charge-optimized variant suggestion")
     scan.add_argument("--json", action="store_true", help="output raw JSON instead of a plain-text summary")
 
-    # lockr fc
     fc = subparsers.add_parser("fc", help="compute fold-change for a LOCKR sensor")
     fc.add_argument("--k-ck", type=float, required=True, dest="k_ck", metavar="FLOAT",
                     help="cage-key dissociation constant, in nM, how tightly lucKey binds the open "
@@ -387,7 +382,6 @@ def main() -> None:
                          "with --k-target, or omitted entirely to assume saturating target")
     fc.add_argument("--json", action="store_true", help="output raw JSON instead of a plain-text summary")
 
-    # lockr graft
     graft = subparsers.add_parser("graft", help="thread a binder into the lucCage latch (needs PyRosetta)")
     graft.add_argument("sequence", nargs="?",
                        help="binder amino-acid sequence to graft, standard residues only, max 35aa. "

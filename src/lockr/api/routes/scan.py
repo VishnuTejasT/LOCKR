@@ -91,8 +91,7 @@ def _parse_mutation(mutation: str) -> Substitution:
 
 def _scan_one(sequence: str, start: int, end: int, ph: float, policy: str,
               preserve_positions: list[int]) -> ScanResultItem:
-    # Shape first: the latch is a helix, so a binder that isn't one can't be grafted no matter
-    # how clean its charge profile is.
+    # Shape first: a binder that isn't a helix can't be grafted no matter how clean its charge profile is.
     helix_report = helix_engine.analyze_helix(sequence)
 
     census = liability.scan_liability(sequence, preserve_positions=preserve_positions, ph=ph)
@@ -116,8 +115,7 @@ def _scan_one(sequence: str, start: int, end: int, ph: float, policy: str,
 
     variant = liability.suggest_variant(sequence, preserve_positions=preserve_positions, policy=policy,
                                         window=(start, end))
-    # Point substitutions re-run the same structure check: swapping D/E changes helix propensity,
-    # capping and salt bridges, so the variant's shape has to be re-earned, not assumed.
+    # Re-run the structure check: swapping D/E changes helix propensity, so the variant's shape isn't assumed.
     variant_helix = helix_engine.analyze_helix(variant.sequence)
     suggested = [SuggestedVariant(
         sequence=variant.sequence,

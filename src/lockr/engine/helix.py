@@ -1,34 +1,13 @@
-"""
-A structure pre-check that runs before the charge liability scan. The latch of lucCage is a
-helix, so a binder only threads into it if the binder is helical too. This module estimates
-how helical a peptide is likely to be from its sequence alone, and separately looks for signs
-that the peptide was meant to be cyclic (which cannot be grafted linearly at all).
-
-Two honest limits worth stating up front:
-
-1. This is a propensity estimate, not a structure prediction. For a real answer you need
-   AlphaFold/ESMFold or knowledge of where the binder came from. What is here is the same
-   physics those helix-coil models are built on, just without the statistical mechanics:
-   per-residue helix propensities measured in host-guest peptide systems (Pace & Scholtz 1998),
-   plus the capping, salt bridge and amphipathicity terms that dominate short peptide helices.
-
-2. Cyclization is topology, not sequence. A head-to-tail amide or a disulfide staple leaves no
-   trace in a one-letter string. All this can do is spot the residue patterns that make
-   cyclization possible and ask the user, which is why it reports evidence rather than a verdict.
-
-A peptide that is floppy on its own can still be helical once grafted, because the lucCage
-scaffold templates the helix. So low helix confidence is a warning. The two things that
-genuinely block a graft are an internal proline (it puts a permanent kink where the latch
-needs a straight helix) and a confirmed cyclic peptide (there is no linear chain to thread).
-"""
+"""LucCage's latch is a helix, so the binder MUST be a helix to work within the LOCKR system. 
+This module estimated the helix propensity based on the sequence alone (utilizes the Pace & Scholtz 1998 scale). 
+It also flags residue patterns that are common in binders that are cyclic. Only a confirmed cyclic peptide will block the graft from even occuring,
+ but this confidence rating is just a warning because the LucCage scaffold can graft barealy-nonhelical binders too."""
 
 from __future__ import annotations
 
 from .models import CyclizationEvidence, HelixIssue, HelixReport
 
-# Pace & Scholtz (1998) helix propensities, kcal/mol relative to alanine. Lower is more
-# helical. These come from substitutions in real peptide helices, unlike the Chou-Fasman
-# frequencies in charge.py, which were counted in globular proteins and read the opposite way.
+# Pace & Scholtz (1998) helix propensities, with kcal/mol relative to alanine. LOWER = MORE HELICAL.
 _HELIX_DDG = {
     "A": 0.00, "L": 0.21, "R": 0.21, "M": 0.24, "K": 0.26, "Q": 0.39, "E": 0.40,
     "I": 0.41, "W": 0.49, "S": 0.50, "Y": 0.53, "F": 0.54, "H": 0.61, "V": 0.61,
@@ -36,47 +15,39 @@ _HELIX_DDG = {
 }
 _WORST_DDG = 1.00  # Glycine. Proline is handled separately so it can't swamp the average.
 
-# Residues that cap a helix well. An N-cap sits one before the first helical residue and
-# hydrogen bonds back to the free NH groups; D/N/S/T do it with their side chain oxygen.
+
 _GOOD_N_CAP = set("DNST")
 
-# Kyte-Doolittle hydropathy, used for the helical wheel moment.
+
 _HYDROPATHY = {
     "A": 1.8, "R": -4.5, "N": -3.5, "D": -3.5, "C": 2.5, "Q": -3.5, "E": -3.5,
     "G": -0.4, "H": -3.2, "I": 4.5, "L": 3.8, "K": -3.9, "M": 1.9, "F": 2.8,
     "P": -1.6, "S": -0.8, "T": -0.7, "W": -0.9, "Y": -1.3, "V": 4.2,
 }
 
-_HELIX_PERIOD_DEG = 100.0  # An alpha helix turns 100 degrees per residue.
+_HELIX_PERIOD_DEG = 100.0  
 
 _ACIDIC = set("DE")
 _BASIC = set("KR")
 
-# Bands for the 0-1 confidence. Tuned so a designed amphipathic binder lands in "likely",
-# a mixed sequence in "uncertain", and something Pro/Gly rich in "unlikely".
 _BAND_LIKELY_MIN = 0.60
 _BAND_UNCERTAIN_MIN = 0.40
 
-_MIN_LENGTH_FOR_HELIX = 7  # Under two turns there is no helix to speak of.
+_MIN_LENGTH_FOR_HELIX = 7 
 
 
 def _mean_propensity_score(sequence: str) -> float:
     """Average helix propensity mapped to 0-1, where 1 is a perfect poly-alanine helix."""
     if not sequence:
         return 0.0
-    # Proline is capped at the glycine value here. Its real cost is 3.16, which would drag a
-    # single-proline peptide to near zero on its own; the kink is reported as an issue instead.
+    #Proline would drag the conf down by a landslide.
     total = sum(min(_HELIX_DDG.get(aa, _WORST_DDG), _WORST_DDG) for aa in sequence)
     mean = total / len(sequence)
     return max(0.0, 1.0 - mean / _WORST_DDG)
 
 
 def _hydrophobic_moment(sequence: str) -> float:
-    """
-    Eisenberg's moment: sum the hydropathy of each residue as a vector pointing where that
-    residue sticks out around a helical wheel. A binder that grips a groove is usually
-    amphipathic, all the greasy residues on one face, which shows up as a large moment.
-    """
+    """An amphipathic helix is more likely to be stable and graftable because its hydrophobic residues are clustered on one face, promoting interactions with hydrophobic surfaces."""
     import math
 
     if not sequence:
@@ -91,11 +62,8 @@ def _hydrophobic_moment(sequence: str) -> float:
 
 
 def _salt_bridges(sequence: str) -> list[tuple[int, int]]:
-    """
-    i to i+3 and i to i+4 acid/base pairs land on the same face of the helix and can form a
-    stabilizing salt bridge. Positions are 1-based. These are what the charge optimizer is
-    most likely to destroy without noticing.
-    """
+    """i to i+3/i+4 acid-base pairs land on the same helical face and can form a stabilizing salt bridge.  
+    This could destroy these possibilities without knowing."""
     pairs = []
     for i, aa in enumerate(sequence):
         for gap in (3, 4):
@@ -115,24 +83,22 @@ def _find_issues(sequence: str) -> list[HelixIssue]:
     if n < _MIN_LENGTH_FOR_HELIX:
         issues.append(HelixIssue(
             position=None, severity="blocking", kind="too_short",
-            message=f"{n} residues is under two helical turns, too short to graft as a helix.",
+            message=f"{n} residues is under two helical turns, so this will block the graft.",
         ))
 
     for i, aa in enumerate(sequence, 1):
-        # A proline in the first turn is fine and even common, it just starts the helix.
-        # Anywhere else it breaks the backbone hydrogen bond pattern and kinks the chain.
-        if aa == "P" and i > 4:
+        if aa == "P" and i > 4: 
             issues.append(HelixIssue(
                 position=i, severity="blocking", kind="internal_proline",
-                message=f"Proline at {i} kinks the helix, it will not thread the straight latch.",
+                message=f"Proline at {i} kinks the helix, and it wont thread as a straight latch",
             ))
         elif aa == "P":
             issues.append(HelixIssue(
                 position=i, severity="info", kind="n_terminal_proline",
-                message=f"Proline at {i} is in the first turn, which is tolerated.",
+                message=f"Proline at {i} is in the first turn, so grafting will be fine.",
             ))
 
-    # Glycine is flexible rather than kinked, so it costs stability without blocking.
+    # Glycine is flexible instead of being kinked, so it costs stability.
     internal_gly = [i for i, aa in enumerate(sequence, 1) if aa == "G" and 1 < i < n]
     if len(internal_gly) >= 2:
         issues.append(HelixIssue(
@@ -140,8 +106,6 @@ def _find_issues(sequence: str) -> list[HelixIssue]:
             message=f"Glycines at {', '.join(str(p) for p in internal_gly)} make the backbone floppy.",
         ))
 
-    # Only the N-cap is reported. A weak C-cap is true of most sequences and there is rarely
-    # anything useful to do about it, so it would be noise.
     if n >= _MIN_LENGTH_FOR_HELIX and sequence[0] not in _GOOD_N_CAP:
         issues.append(HelixIssue(
             position=1, severity="info", kind="weak_n_cap",
@@ -152,25 +116,18 @@ def _find_issues(sequence: str) -> list[HelixIssue]:
 
 
 def _cyclization_evidence(sequence: str) -> CyclizationEvidence:
-    """
-    Sequence cannot prove a peptide is cyclic, so this collects the patterns that make
-    cyclization possible and lets the caller ask the user.
-    """
     cys = [i for i, aa in enumerate(sequence, 1) if aa == "C"]
     signals = []
     n = len(sequence)
 
-    # Cysteine pairs are the only signal used here. Acid/base pairs one helix turn apart are
-    # where a lactam staple would go, but they are also just how a designed helix stabilizes
-    # itself, so flagging them would fire on nearly every good helical binder.
+
     if len(cys) >= 2:
         if cys[0] <= 3 and cys[-1] >= n - 2:
             signals.append(
-                f"cysteines at {cys[0]} and {cys[-1]}, one near each end, the usual pattern for "
-                "a disulfide-cyclized peptide"
+                f"The cysteines at {cys[0]} and {cys[-1]} show the pattern for a disulfide-cyclized peptide."
             )
         else:
-            signals.append(f"{len(cys)} cysteines (at {', '.join(str(p) for p in cys)}) could form a disulfide")
+            signals.append(f"{len(cys)} Cysteines (at {', '.join(str(p) for p in cys)}) could form a disulfide!")
 
     return CyclizationEvidence(
         possibly_cyclic=bool(signals),
@@ -187,19 +144,16 @@ def _band(confidence: float) -> str:
     return "unlikely helical"
 
 
-# How much each term moves the confidence. Propensity carries most of it; the moment is a
-# supporting hint and the salt bridges a small bonus, since neither alone makes a helix.
+
 _W_PROPENSITY = 0.75
 _W_MOMENT = 0.15
 _W_SALT_BRIDGE = 0.10
-# On the Kyte-Doolittle scale a clearly amphipathic helix runs around 2 per residue, while a
-# sequence with no face separation sits near 0.5.
+
 _MOMENT_SATURATION = 2.0
 _SALT_BRIDGE_SATURATION = 3
 
 
 def analyze_helix(sequence: str) -> HelixReport:
-    """Estimate whether a binder is helical enough to graft, and flag anything blocking."""
     seq = sequence.strip().upper()
 
     propensity = _mean_propensity_score(seq)
@@ -212,7 +166,7 @@ def analyze_helix(sequence: str) -> HelixReport:
         + _W_MOMENT * min(moment / _MOMENT_SATURATION, 1.0)
         + _W_SALT_BRIDGE * min(len(bridges) / _SALT_BRIDGE_SATURATION, 1.0)
     )
-    # A blocking issue means the shape is wrong no matter how good the averages look.
+   
     if any(i.severity == "blocking" for i in issues):
         confidence = min(confidence, _BAND_UNCERTAIN_MIN - 0.01)
 
@@ -229,16 +183,9 @@ def analyze_helix(sequence: str) -> HelixReport:
     )
 
 
-# Substitutions the charge optimizer makes that cost helix stability for reasons the average
-# propensity does not capture. Each returns a message when it applies.
-def compare_for_variant(original: str, variant: str) -> list[str]:
-    """
-    Point out where a charge-optimized variant is worse for the helix than the original.
 
-    Neutralizing D/E to A usually helps, alanine is the best helix former there is. The
-    losses are positional: an N-cap that stops capping, a salt bridge that no longer pairs,
-    and the helix macrodipole losing the negative charge that was stabilizing its N-terminus.
-    """
+def compare_for_variant(original: str, variant: str) -> list[str]:
+    """This will tell you whether a charge-optimized variant is likely to be less helical than the original, and therefore less likely to graft well."""
     orig = original.strip().upper()
     var = variant.strip().upper()
     if len(orig) != len(var):
@@ -253,21 +200,19 @@ def compare_for_variant(original: str, variant: str) -> list[str]:
     if 1 in changed and orig[0] in _GOOD_N_CAP and var[0] not in _GOOD_N_CAP:
         notes.append(
             f"Position 1 changed {orig[0]} to {var[0]}, losing the N-cap. The helix will fray "
-            "from that end even though the new residue is a better helix former mid-chain."
+            "from that end, and the graft will be less stable and more likely to fail."
         )
 
     lost = set(_salt_bridges(orig)) - set(_salt_bridges(var))
     if lost:
         pairs = ", ".join(f"{i}-{j}" for i, j in sorted(lost))
-        notes.append(f"Salt bridges lost at {pairs}, each was worth roughly 0.1-0.5 kcal/mol of helix stability.")
+        notes.append(f"Salt bridges lost at {pairs}, and each was worth ~0.1-0.5 kcal/mol of helix stability.")
 
-    # The helix dipole runs positive at the N-terminus, so acidic residues in the first turn
-    # are stabilizing. Neutralizing them there gives that back.
     dipole_lost = [p for p in changed if p <= 4 and orig[p - 1] in _ACIDIC and var[p - 1] not in _ACIDIC]
     if dipole_lost:
         positions = ", ".join(str(p) for p in dipole_lost)
         notes.append(
-            f"Acidic residues at {positions} were neutralized, which removes a favorable "
+            f"Acidic residues at {positions} were neutralized, and it removed a favorable "
             "interaction with the helix dipole near the N-terminus."
         )
 

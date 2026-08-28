@@ -19,8 +19,7 @@ def _envelope(code: str, message: str, field: str | None = None) -> dict:
     return {"error": {"code": code, "field": field, "message": message}}
 
 
-# Pydantic v2 prefixes a validator's raise ValueError(msg) with "Value error, "
-#, that's an implementation detail, not something a user should ever read.
+# Pydantic v2 prefixes validator errors with "Value error, ", an implementation detail users shouldn't see.
 def _clean_pydantic_message(msg: str) -> str:
     prefix = "Value error, "
     return msg[len(prefix):] if msg.startswith(prefix) else msg

@@ -1,9 +1,10 @@
 """General LOCKR fold-change model, free-energy helpers, regime diagnostic.
 
-This module runs a 3-state framework thats calculates the following: cage close/open energy, luckey competition
- in open/close states and overall system fold-change. 
- Based of Langan et al. 2019 (Nature 572) and Quijano-Rubio et al. 2021 (Nature 591)
-and applies to any LucCage based sensor system. All eclispe specific numbers live in tests/test_thermo_eclipse.py
+This module runs a 3-state framework that calculates the following: cage close/open energy, luckey competition
+in open/close states and overall system fold-change. 
+
+All these calculations and models are based on Langan et al. 2019 (Nature 572) and Quijano-Rubio et al. 2021 (Nature 591)
+and applies to any LucCage based sensor system.
 """
 
 from __future__ import annotations
@@ -18,23 +19,15 @@ from .models import DEFAULT_PARAMS, FoldChangeResult, LodResult, RegimeResult, S
 
 
 def theta(target_conc: float, Kd: float) -> float:
-    # Fraction of binder occupied by target.
     return target_conc / (target_conc + Kd)
 
 
 def k_open_eff(K_open: float, pull: float, theta: float) -> float:
-    # Target binding pulls the latch open; pull is the allosteric coupling strength.
     return K_open * (1 + pull * theta)
 
 
 def _f_open(k_open: float, params: SensorParams) -> float:
-    # Fraction of cages in the open+lucKey-bound (signal-competent) state.
-    # Three-state partition function: closed (weight 1), open-apo (weight
-    # k_open), open+key-bound (weight k_open*luckey_ratio, since key binding
-    # is conditional on the cage already being open). Luminescence tracks
-    # the open+key-bound population specifically, not "open" generally, an
-    # open-but-empty cage has an exposed SmBiT with no LgBiT partner, so it
-    # doesn't glow.
+    # 3-state partition function; only open+key-bound glows (to luminescence, the cage must already be open, and the key must be bound.)
     weight_signal = k_open * params.luckey_ratio
     return weight_signal / (1 + k_open + weight_signal)
 
@@ -48,7 +41,6 @@ def fold_change(target_conc: float, Kd: float, pull: float,
 
 def fold_change_detail(target_conc: float, Kd: float, pull: float,
                        params: SensorParams = DEFAULT_PARAMS) -> FoldChangeResult:
-    # Same calc, but keeps every intermediate for a result card / debugging.
     th = theta(target_conc, Kd)
     koe = k_open_eff(params.K_open, pull, th)
     f_base = _f_open(params.K_open, params)
@@ -57,28 +49,21 @@ def fold_change_detail(target_conc: float, Kd: float, pull: float,
 
 
 def f_base(params: SensorParams = DEFAULT_PARAMS) -> float:
-    # Baseline open fraction with no target present.
     return _f_open(params.K_open, params)
 
 
 def _saturating_fc(pull: float, params: SensorParams) -> float:
-    # FC at theta -> 1 (saturating target): the realised max FC for this finite
-    # pull. Distinct from params.luckey_ratio (the dominance ratio) and from the
-    # true pull->infinity asymptote (1+K_open+luckey_ratio)/K_open, which this
-    # codebase doesn't compute anywhere.
+    # Realized max FC at this finite pull. This is not the dominance ratio and not the pull->infinity asymptote.
     koe = k_open_eff(params.K_open, pull, 1.0)
     return _f_open(koe, params) / _f_open(params.K_open, params)
 
 
 def max_fold_change(Kd: float, pull: float, params: SensorParams = DEFAULT_PARAMS) -> float:
-    # Kd is unused on purpose, this max is cage-set, not Kd-set; kept in the
-    # signature to mirror fold_change's args at call sites.
     return _saturating_fc(pull, params)
 
 
 def scan_dose_response(Kd: float, pull: float, params: SensorParams = DEFAULT_PARAMS,
                        n: int = 500) -> ScanResult:
-    # Titrate target across ~9 decades, read off max FC / EC50 / LOD (0.1*EC50).
     conc = np.logspace(-14, -5, n)
     fcs = np.array([fold_change(c, Kd, pull, params) for c in conc])
     mfc = float(fcs.max())
@@ -89,8 +74,7 @@ def scan_dose_response(Kd: float, pull: float, params: SensorParams = DEFAULT_PA
 
 def lod_and_ec50(Kd: float | None, pull: float, params: SensorParams = DEFAULT_PARAMS,
                  n: int = 500) -> LodResult:
-    # Kd=None -> saturating assumption, no dose-response curve to read a LOD off of.
-    if Kd is None:
+    if Kd is None:  # This assumes the target is saturated, so the LOD is not meaningful.
         return LodResult(None, None, None)
 
     conc = np.logspace(-15, -5, n)
@@ -108,25 +92,20 @@ def lod_and_ec50(Kd: float | None, pull: float, params: SensorParams = DEFAULT_P
 
 def k_open_from_destab(k_open_current: float, n_mutations: int, destab_per_mut: float,
                        RT: float = DEFAULT_PARAMS.RT) -> float:
-    # Each latch mutation shaves destab_per_mut off the cost to crack the cage
-    # open (Langan 2019-style destabilization estimate), see K_open tuning
-    # guide in the Assembly tab.
+    # Each mutation lowers destab_per_mut off the cost to open (Langan 2019-style estimate).
     dg_cost = -RT * math.log(k_open_current)
     return math.exp(-(dg_cost - n_mutations * destab_per_mut) / RT)
 
 
 def dg_open_cost(params: SensorParams = DEFAULT_PARAMS) -> float:
-    # Cost to crack the latch open: -RT*ln(K_open).
     return -params.RT * math.log(params.K_open)
 
 
 def dg_luckey(params: SensorParams = DEFAULT_PARAMS) -> float:
-    # Energy released by lucKey binding once the latch is open.
     return -params.RT * math.log(params.luckey_ratio)
 
 
 def dg_from_kd(Kd: float, RT: float = DEFAULT_PARAMS.RT) -> float:
-    # Boltzmann relation: dG = RT*ln(Kd).
     return RT * math.log(Kd)
 
 
@@ -139,53 +118,24 @@ def kd_from_ddg(kd_ref: float, ddg: float, RT: float = DEFAULT_PARAMS.RT) -> flo
     return kd_ref * math.exp(ddg / RT)
 
 
-# Search ranges for the local-optimum probes below, generous but bounded so
-# the optimizer can't wander into non-physical territory (K_open > 0.5 means
-# a cage that's open more than half the time at rest, already a failed
-# design; lucKey from 1 pM to 1 mM covers essentially any real assay).
+
 _K_OPEN_SEARCH_BOUNDS = (1e-6, 0.5)
 _LUCKEY_SEARCH_BOUNDS = (1e-12, 1e-3)
-# Below this relative gain, moving an axis to its own local optimum isn't
-# worth chasing, general heuristic, not biology.
-_NEGLIGIBLE_GAIN = 0.02
-# One axis needs at least this multiple of the other's achievable gain
-# before it's called out as "the" limiting axis, rather than "mixed".
-_DOMINANT_MARGIN = 2.0
+_NEGLIGIBLE_GAIN = 0.02  
+_DOMINANT_MARGIN = 2.0 
 
 
 def _best_along(vary: Callable[[float], SensorParams], low: float, high: float,
                 pull: float) -> tuple[float, float]:
-    """Best achievable saturating fold-change by varying one parameter
-    (via `vary(x) -> SensorParams`) in log-space over [low, high], pull and
-    everything else held fixed.
-
-    Log-space because K_open/lucKey span many orders of magnitude and the
-    curve is unimodal in the log of either one (see the ratio sweep in the
-    _f_open fix commit), a linear-space search would barely sample the
-    interesting region.
-    """
     def neg_mfc(log_x: float) -> float:
         return -_saturating_fc(pull, vary(10 ** log_x))
 
     res = minimize_scalar(neg_mfc, bounds=(math.log10(low), math.log10(high)), method="bounded")
-    # minimize_scalar returns numpy scalars, cast to plain float so
-    # downstream comparisons (e.g. `is True`) get real Python bools, not
-    # numpy.bool_.
-    return float(10 ** res.x), float(-res.fun)
+    return float(10 ** res.x), float(-res.fun)  
 
 
 def diagnose_regime(params: SensorParams = DEFAULT_PARAMS, pull: float = 10.0) -> RegimeResult:
-    """Which lever, K_open or lucKey/K_CK, actually has headroom left, and
-    which direction to move it, for any K_open/K_CK/lucKey.
-
-    The old version compared a fixed 30x K_open probe against a fixed
-    threshold, which implicitly assumed "more open" and "more lucKey" always
-    help. They don't, past a point, more lucKey raises background as fast as
-    signal, this model has a real interior optimum, not a monotonic ramp
-    (see the _f_open docstring). So instead this finds each axis's actual
-    local optimum via a bounded search and reports how much headroom (if
-    any) is left in each direction, and which way to move.
-    """
+    """Which lever, K_open or lucKey/K_CK, has headroom left, and which direction to move it."""
     ratio = params.luckey_ratio
     mfc = _saturating_fc(pull, params)
 
@@ -200,15 +150,13 @@ def diagnose_regime(params: SensorParams = DEFAULT_PARAMS, pull: float = 10.0) -
     gain_luckey = max(0.0, (mfc_luckey_opt - mfc) / mfc)
 
     def _sentence(s: str) -> str:
-        # str.capitalize() lowercases everything but the first letter, which
-        # mangles "K_open"/"K_CK"; this only touches the first character.
-        return s[0].upper() + s[1:] if s else s
+        return s[0].upper() + s[1:] if s else s  
 
     def _k_open_move() -> str:
         word = "raising" if best_k_open > params.K_open else "lowering"
         return (f"{word} K_open from {params.K_open:.3g} toward {best_k_open:.3g} "
-                f"(engineer the latch for a {'weaker' if word == 'raising' else 'stronger'} "
-                f"closed state) would take fold-change to about {mfc_k_open_opt:.1f}x")
+                f"(Engineer the latch for a {'weaker' if word == 'raising' else 'stronger'} "
+                f"closed state), and this would take fold-change to about {mfc_k_open_opt:.1f}x")
 
     def _luckey_move() -> str:
         word = "raising" if best_luckey > params.lucKey else "lowering"
@@ -219,14 +167,14 @@ def diagnose_regime(params: SensorParams = DEFAULT_PARAMS, pull: float = 10.0) -
     if gain_k_open < _NEGLIGIBLE_GAIN and gain_luckey < _NEGLIGIBLE_GAIN:
         regime, helps = "mixed", False
         verdict = (f"Near-optimal: lucKey/K_CK = {ratio:.1f} and K_open = {params.K_open:g} "
-                   f"are both already close to their best achievable values at pull={pull:g} "
+                   f"are both already close to their maximum values at pull={pull:g} "
                    f"(fold-change {mfc:.1f}x, ceiling ~{max(mfc, mfc_k_open_opt, mfc_luckey_opt):.1f}x "
-                   f"from either alone). The remaining lever is pull itself, redesigning the "
-                   f"cage-latch allosteric coupling, not lucKey/K_CK or K_open.")
+                   f"cage-latch allosteric coupling is the way to go, not tweaking lucKey/K_CK or K_open.")
+                   
         recommendations = [
             "K_open and lucKey/K_CK are both already close to their local optimum for this pull.",
-            "Raise pull (allosteric coupling strength) to go further; that means redesigning the "
-            "cage-latch geometry, not the concentrations or K_CK.",
+            "Raise pull (allosteric coupling strength) to go further. That means redesigning the "
+            "cage-latch geometry, and not the concentrations or K_CK.",
         ]
     elif gain_luckey >= gain_k_open * _DOMINANT_MARGIN:
         regime, helps = "key-limited", gain_k_open >= _NEGLIGIBLE_GAIN
@@ -253,7 +201,6 @@ def diagnose_regime(params: SensorParams = DEFAULT_PARAMS, pull: float = 10.0) -
 
 def fit_pull_strength(target_conc, fc_measured, Kd: float,
                       params: SensorParams = DEFAULT_PARAMS):
-    # Pull can't be computed, back it out from a measured titration curve.
     target_conc = np.asarray(target_conc, dtype=float)
     fc_measured = np.asarray(fc_measured, dtype=float)
 

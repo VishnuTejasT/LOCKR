@@ -1,13 +1,6 @@
-"""Threading scan using PyRosetta REF2015. Calibrated on lucCage PfLB-1
-v1.0 and the original charged binder, thresholds are ECLIPSE-derived
-estimates, not universal constants, and are NOT portable across machines
-(see the calibration block below).
-
-Standard PyRosetta threading, not proprietary logic: mutate the binder into
-each candidate position, score with ref2015, keep the lowest-scoring
-position. No repacking or relax is applied, this is a fast ranking pass over
-positions, not a structure-refinement step.
-"""
+""" This portion acts as the grafting engine for LATTE. It utilizes the Baker Lab's existing PyRosetta REF2015 program. 
+    It mutates the binder seq into every possible latch position while scoring the best position in REU. 
+    This position is returned, as well as a grafted PDB file and a copy-paste sequence."""
 
 from __future__ import annotations
 
@@ -33,49 +26,28 @@ _PYROSETTA_INSTALL_MESSAGE = (
     "https://west.rosettacommons.org/pyrosetta/quarterly/release"
 )
 
-# Latch geometry on the bundled template (src/lockr/data/lucCage_template_clean.pdb).
-# 325-326 is the native "ER" that isn't graftable, so threading starts at 327.
+# Threading starts at 327 because the latch itself starts at 325..
 LATCH_START = 325
 LATCH_END = 359
 SCAN_START = 327
 SCAN_END = 343
 
-# Calibrated on this machine: PyRosetta 2026.03, M1 Mac, ref2015, no
-# repacking. v1.0 (LISAAALAAIFAAALAC) scored -1469.57 REU at position 327,
-# the original charged binder (LISDAELEAIFAEELDC) scored -1320.88 REU at the
-# same position, both matching the ECLIPSE-documented WSL2 numbers to the
-# hundredth of a REU. Rosetta scores are NOT portable across platforms or
-# PyRosetta builds in general, if this ever gets run on different hardware,
-# re-run find_best_graft_position() on both sequences and update these three
-# constants, don't assume they still hold.
+#This was measured based on a calibration from PyRosetta 2026.3, so take it with a grain of salt.
 _V10_SCORE = -1469.5729329275262
 _ORIGINAL_SCORE = -1320.8792272918831
 _TOLERANCE = 50.0
 GOOD_SCORE_MAX = _V10_SCORE + _TOLERANCE
 MARGINAL_SCORE_MAX = _ORIGINAL_SCORE + _TOLERANCE
 
-# What GOOD_SCORE_MAX/MARGINAL_SCORE_MAX above were actually measured on,
-# see the calibration block's comment. Prefix-matched, not exact, since
-# patch-level PyRosetta versions likely don't matter but a major/minor
-# mismatch might. PyPI's version string is "2026.3", not zero-padded
-# "2026.03", matched that exactly here to avoid a false-positive mismatch.
+
 _CALIBRATED_PYROSETTA_VERSION = "2026.3"
-_CALIBRATED_PLATFORM = ("Darwin", "arm64")  # macOS, Apple Silicon
+_CALIBRATED_PLATFORM = ("Darwin", "arm64")  
 
 _initialized = False
 
 
 def _calibration_mismatch_warning() -> str | None:
-    """None if this looks like the machine the REU thresholds above were
-    calibrated on, otherwise a warning explaining why good/marginal/poor
-    verdicts here may not mean what they claim to.
-
-    Nothing else in this module checks this before handing back a verdict,
-    Rosetta scores are not portable across platforms or PyRosetta builds
-    (see the module docstring), so a verdict computed on different hardware
-    is silently comparing today's REU score against thresholds measured on
-    someone else's machine.
-    """
+    """There will be none if it matches this calibration; otherwise, a warning string is returned."""
     mismatches = []
 
     system, machine = platform.system(), platform.machine()
@@ -94,16 +66,13 @@ def _calibration_mismatch_warning() -> str | None:
     if not mismatches:
         return None
     return ("Calibration mismatch: " + "; ".join(mismatches) + ". GOOD_SCORE_MAX/"
-           "MARGINAL_SCORE_MAX were measured on a specific machine/PyRosetta build "
-           "and are not portable, re-run find_best_graft_position() on the two "
-           "reference binders in the module docstring and update those constants "
-           "before trusting good/marginal/poor verdicts here.")
+           "MARGINAL_SCORE_MAX were claclulated on a specific PyRosetta version and platform, and may not be portable to this environment. "
+           "Re-run find_best_graft_position() on the two "
+           "reference binders")
 
 
 def _ensure_init() -> None:
-    # Lazy, not at module import: PyRosetta's init() loads its full database
-    # (multi-second cost) and this module gets imported just by importing the
-    # API app, most requests never touch grafting at all.
+    #init() loads PyRosetta's full database (multi-second cost), and most API requests never graft.
     global _initialized
     if not PYROSETTA_AVAILABLE:
         raise ImportError(_PYROSETTA_INSTALL_MESSAGE)
@@ -123,7 +92,6 @@ def _verdict(score: float) -> str:
 
 
 def _thread(pose, position: int, binder_sequence: str, scorefxn) -> None:
-    # Mutates in place, one residue at a time, starting at `position`.
     for i, aa in enumerate(binder_sequence):
         mutate_residue(pose, position + i, aa, 0.0, scorefxn)
 

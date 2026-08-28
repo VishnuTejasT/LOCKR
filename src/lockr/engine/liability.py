@@ -1,12 +1,4 @@
-"""
-This module identifies whether the grafted binder weakens K_CK interactions and propsoes a fix to improve K_CK 
-thermodynamics by mutating aspartic acids and glutamic acids with alanines to neutralize the charge of the 
-binder itself. This penalty portion is derived straight from team ECLIPSE's binde roptimization pipeline framework,
-inspired by Langan 2019 / Quijano-Rubio 2021. These optimizations can be seen in claibration.py. In Addition, the optimized and 
-suggested seuqence is passed on to assembly.py to verify whether the optimization interacts or overlaps with 
-protected region of the LOCKR latch.
-
-"""
+"""Flags whether a grafted binder's charged residues weaken K_CK, and proposes a fix to the possible problem by providing a conservative or neutralizing approach. The suggested sequence gets checked against protected regions by assembly.py."""
 
 from __future__ import annotations
 
@@ -16,7 +8,7 @@ from . import calibration
 from .charge import net_charge
 from .models import BinderSequence, K_CK_DEFAULT, Liability, LiabilityReport, RT_37C, VariantSuggestion
 
-#D/E -> A was the fix for ECLIPSE, but D->N/E->Q is way more conservative and keeps shape and hydrogen bonding too.
+#D/E -> A was the fix for us, but D->N/E->Q is way more conservative and keeps shape and hydrogen bonding too.
 _POLICIES = {
     "neutralizing": {"D": "A", "E": "A"},
     "conservative": {"D": "N", "E": "Q"},
@@ -32,7 +24,7 @@ def _dg_ck(K_CK_reference: float, RT: float) -> float:
 
 def kck_from_penalty(penalty: float, K_CK_reference: float = K_CK_DEFAULT,
                      RT: float = RT_37C) -> float:
-    # K_CK_estimate = exp(-(|dG_CK| - penalty)/RT): bigger penalty, weaker K_CK.
+    # K_CK_estimate = exp(-(|dG_CK| - penalty)/RT). The higher the penalty, the weaker K_CK is.
     return math.exp(-(abs(_dg_ck(K_CK_reference, RT)) - penalty) / RT)
 
 
@@ -45,7 +37,7 @@ def _band(score: float) -> str:
 
 
 def _score_from_penalty(penalty: float, score_scale: float) -> float:
-    # Saturating kcal/mol -> 0..100 map.
+    """Maps a penalty to a 0-100 score, where 100 is no penalty and 0 is a huge penalty."""
     return 100.0 * (1.0 - math.exp(-penalty / score_scale))
 
 

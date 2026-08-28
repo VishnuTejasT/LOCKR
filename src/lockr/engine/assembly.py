@@ -1,8 +1,4 @@
-"""
-This module contains code for checking whether the LOCKR sequence was properly grafted, and filtered to avoid
-the overlaying of integrations over protected regions of the LOCKR latch, like the SmBit luciferase from the LucCage.
-It also checks to see whether the protected region is intact,a nd the sequence of the protected area is where it is supposed to be (residue-wise).
-"""
+"""This portion checks to see whether the LOCKR sequence was properly grafted, and whether the latch still has its SmBit intact."""
 
 from __future__ import annotations
 
@@ -12,7 +8,6 @@ from .models import GraftSpec, LatchWindow, ProtectedRegion, VariantSuggestion
 
 
 def _segment(sequence: str, start: int, length: int) -> str:
-    # 1-indexed, inclusive, matches BinderSequence.residues() elsewhere.
     return sequence[start - 1:start - 1 + length]
 
 
@@ -31,8 +26,7 @@ def check_protected_region(full_sequence: str, protected_motif: str,
 
     mismatches = [start + i for i in range(min(len(found), len(protected_motif)))
                  if found[i] != protected_motif[i]]
-    # A length mismatch means the window itself is wrong, not just a residue
-    # flag every position past the shorter string too, not just substitutions.
+    #Checks for a length mismatch in the latch window and flags all preceeding positions.
     if len(found) != len(protected_motif):
         mismatches += list(range(start + min(len(found), len(protected_motif)),
                                  start + max(len(found), len(protected_motif))))
@@ -46,8 +40,7 @@ class OverlapCheck:
 
 
 def _graft_segments(graft_spec: GraftSpec):
-    # binder/linker/binder2 are the things actually being inserted and the spacer is
-    # the pre-existing scaffold, and not part of the graft, so it is excluded here.
+    # Excludes the spaces associated with tandem binders.
     segments = [(graft_spec.start, graft_spec.start + len(graft_spec.binder) - 1)]
     if graft_spec.linker is not None:
         segments.append((graft_spec.linker_start,
@@ -150,11 +143,10 @@ def verify_full_assembly(full_sequence: str, latch_window: LatchWindow, graft_sp
     return AssemblyResult(checks)
 
 
-# The two lucCage variants I've actually built: untagged v1.0 and the
-# His-TEV-tagged version (20aa N-terminal tag shifts everything downstream).
+# The two built lucCage variants: untagged v1.0 (which is 359aa) and the His-TEV-tagged variant (which is 379aa).
 _SMBIT_MOTIF = "VTGYRLFEEIL"
 _KNOWN_VARIANT_SMBIT_START = {359: 312, 379: 332}
-_MIN_LUCCAGE_LENGTH = 100  # shorter than this, treat as a binder-only paste
+_MIN_LUCCAGE_LENGTH = 100 
 
 
 @dataclass
@@ -166,15 +158,7 @@ class SequenceCheckResult:
 
 
 def check_sequence(sequence: str) -> SequenceCheckResult:
-    """Parameter-free background check for the Scanner, no form to fill out.
-
-    For a known variant length, checks SmBiT at its known position directly
-    (catches a corrupted residue that a free-text search would just call
-    "not found" and skip). For an unrecognized length that still contains
-    SmBiT somewhere, flags the length as off. Anything else is silent, most
-    likely just a binder-only paste, which isn't a lucCage and has nothing to
-    check.
-    """
+    """This checks SmBiT at its known position and flags a length mismatch if the seq. is not a known variant."""
     length = len(sequence)
     warnings: list[str] = []
     smbit_found = False
@@ -188,24 +172,22 @@ def check_sequence(sequence: str) -> SequenceCheckResult:
             smbit_found = True
             smbit_position = (start, end)
         else:
-            warnings.append(f"The luciferase fragment tag (SmBiT, {_SMBIT_MOTIF}) is not found at "
-                            "expected position, this usually means a typo or a missing/duplicated "
-                            "chunk somewhere in the sequence. Check your sequence before scanning.")
+            warnings.append(f"SmBiT, {_SMBIT_MOTIF} was not found at the"
+                            "expected position. This usually means that there's a typo or a missing/duplicated chunk somewhere in the sequence. Check your sequence before scanning.")
     elif length >= _MIN_LUCCAGE_LENGTH:
         idx = sequence.find(_SMBIT_MOTIF)
         if idx != -1:
             smbit_found = True
             smbit_position = (idx + 1, idx + len(_SMBIT_MOTIF))
-            warnings.append(f"Sequence length ({length}aa) doesn't match known lucCage "
-                            "variants (359aa or 379aa), verify your sequence is complete "
-                            "(nothing extra pasted in, nothing missing from the ends).")
+            warnings.append(f"The sequence length ({length}aa) doesn't match our known lucCage "
+                            "variants (359aa or 379aa). Please verify whether your sequence is complete. "
+                            )
 
     return SequenceCheckResult(length, smbit_found, smbit_position, warnings)
 
 
 def _mutation_position(mutation: str) -> int:
-    # liability.py writes mutations as "{old}{pos}{new}", e.g. "D4A" digits
-    # are always the position since residue codes are letters.
+    # liability.py writes mutations as "{old}{pos}{new}", e.g. "D4A".
     return int("".join(ch for ch in mutation if ch.isdigit()))
 
 
@@ -217,9 +199,6 @@ class FilteredVariants:
 
 def filter_safe_variants(suggested_variants: list[VariantSuggestion],
                          protected_region: ProtectedRegion) -> FilteredVariants:
-    """This restricts liability.py from ever suggestion mutations to a protected region, which is a hard constraint
-    for function.
-    """
     accepted, rejected = [], []
     for variant in suggested_variants:
         hit = next((m for m in variant.mutations
@@ -228,5 +207,5 @@ def filter_safe_variants(suggested_variants: list[VariantSuggestion],
             accepted.append(variant)
         else:
             pos = _mutation_position(hit)
-            rejected.append((variant, f"substitution at position {pos} falls inside protected region"))
+            rejected.append((variant, f"The substitution at {pos} falls inside protected region"))
     return FilteredVariants(accepted, rejected)
