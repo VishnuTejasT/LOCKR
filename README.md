@@ -1,15 +1,6 @@
-# LOCKR design tool
+# LOCKR Thermodynamics Design Tool
 
-LOCKR is a local tool for exploring thermodynamic designs of LOCKR biosensors. It combines a peptide sequence scanner with fold-change, dosing, parameter-sweep, and design-map calculations. The calculations run on your machine; the web interface is served locally by the Python API.
-
-The sequence scanner estimates charge-related cage–key (K_CK) liabilities and checks whether a binder sequence looks compatible with a helical latch. These are screening estimates, not structural predictions or substitutes for measurements. The thermodynamic tools use the values you provide, or the ECLIPSE starting values shown in the interface.
-
-## What you can do
-
-- **Scanner:** inspect one binder or a batch, review acidic-residue contributions, get a charge-optimized suggestion, and optionally thread a binder into the lucCage latch.
-- **Calculator & Dosing:** estimate fold-change, see which parameters limit the signal, estimate reporter-key volume to add, and explore latch tuning.
-- **Design Map:** plot how two parameters affect a selected metric, apply feasibility rules, and mark parameter combinations that meet a target fold-change.
-- **API:** use the same calculations from scripts through the local FastAPI service. Assembly verification, inverse design, mutation maps, and supporting calculations are available through the API even when they do not have a separate web form.
+This software is a CPU-only thermodynamic engine for LOCKR biosensors. It essentially works by scanning a binding region in the intended latch, and identifies liabilities and problems that can restrict cage-key thermodynamic interactioons. Before it gets to charge liabilities, it first checks whether the binder is even shaped right, since the lucCage latch is a helix, so a binder has to be helical to thread into it. It provides a fix, and outputs a final K_CK (Cage-Key) score. Then, the user can use the K_CK score from the scanner in the Calculator section to calculate fold-change and other variables to determine whether their LOCKR design is a good fit. Both sections utlize the same physics, so they share the same thermodynamic engine.
 
 ## Install
 
@@ -29,24 +20,34 @@ To install the optional test dependencies:
 pip install -e ".[test]"
 ```
 
-### Optional: enable structure grafting
+## Grafting feature (optional)
 
-Grafting uses PyRosetta, which is a large optional dependency. The scanner, calculator, dosing tools, and design map work without it. Install PyRosetta in the same environment if you need grafting:
+The Scanner's "Graft into lucCage" step needs PyRosetta, and it is not installed by default because it's a ~500mb download.. Everything else in the software works without it, and if it is not downloaded, then the graft button is disabled.
 
 ```bash
-conda activate lockr
+conda activate igem
 pip install pyrosetta \
   --find-links https://west.rosettacommons.org/pyrosetta/quarterly/release
+# East coast mirror if West is slow:
+# pip install pyrosetta \
+#   --find-links https://graylab.jhu.edu/download/PyRosetta4/archive/release-quarterly/release
+
+# Python 3.10 is required (already used by the igem conda env)
+# Verify:
+python3 -c "from pyrosetta import init; init(); print('OK')"
 ```
 
-An alternate mirror is available if the first is slow:
+No registration or license token is needed for the public quarterly mirror.
+Restart `lockr serve` after installing so the API picks it up.
+
+## Using the tool
+
+Activate the environment first:
 
 ```bash
-pip install pyrosetta \
-  --find-links https://graylab.jhu.edu/download/PyRosetta4/archive/release-quarterly/release
+conda activate igem
+lockr --help          # top-level help
 ```
-
-Check the install with `python -c "from pyrosetta import init; init(); print('OK')"`, then restart the server. See [INSTALL.md](INSTALL.md) for the same setup notes.
 
 ## Start the web app
 
@@ -65,86 +66,23 @@ lockr serve --port 8001
 
 The interactive API reference is at `http://127.0.0.1:8000/docs` while the server is running. Stop the server with Ctrl+C.
 
-## Scanner
-
-Open the **Scanner** tab and choose single-sequence or batch mode. Sequences must use the 20 standard amino-acid letters. The scanner normalizes lowercase input to uppercase; it rejects gaps, stop symbols, and non-standard residues.
-
-### Single sequence
-
-Paste a binder sequence, choose the solution pH (default 7.4), then run **Scan**. Results include:
-
-- **Structure check:** a sequence-based helix-confidence estimate, helix propensity, hydrophobic moment, potential stabilizing salt bridges, and any flagged issues. It is a propensity check, not a prediction of the folded structure. A low score is a warning about graft compatibility.
-- **Liability score and band:** summarizes acidic residues counted in the selected sensitive window. Per-position contributions show which residues drive the score. Acidic residues outside the window can still appear in the report but do not add to this score.
-- **Net charge:** calculated at the selected pH.
-- **Estimated K_CK:** a calibrated estimate derived from the liability model. Calibration uses a small ECLIPSE data set; treat values far outside the usual 1–100 nM range as directional warnings, not precise affinities.
-- **Suggested variant:** changes flagged acidic residues while leaving preserved positions alone. Conservative substitutions use D→N and E→Q; neutralizing substitutions use D→A and E→A. Review the sequence and structural warnings before using a suggestion.
-
-The sensitive window and preserved positions are numbered from 1 at the start of the pasted binder. Use the window for the part of the binder whose charge should count toward the cage–key estimate. Preserve target-contact residues if the suggested substitutions must not change them.
-
-### Batch scan
-
-Switch to **Batch**, then paste FASTA, one sequence per line, or a mixture of the two. You can also upload a `.fa`, `.fasta`, or `.txt` file. FASTA headers become result IDs. Select a row to inspect its full scan, or export the summary table as CSV. The best candidate strip ranks sequences by liability score; it is a ranking aid, not a claim that the top sequence will bind or function experimentally.
-
-### Graft into lucCage
-
-After scanning, the graft panel can thread either the original sequence or the suggested variant into the bundled lucCage latch template. By default it scans latch positions 325–359 and reports the best-scoring position and Rosetta score. Enable the specific-position option to try one position. The output includes a grafted sequence and a PDB structure file to download.
-
-Grafting is unavailable until PyRosetta is installed. The Rosetta score is a structural-fit heuristic; inspect the resulting structure and validate the design experimentally.
-
-## Calculator & Dosing
-
-### Fold-change calculator
-
-The **Calculator & Dosing** tab starts with example ECLIPSE values. You can choose a preset or enter your own:
-
-| Input | Meaning | Units |
-|---|---|---|
-| K_CK | Dissociation constant for reporter key binding to open cage; lower means tighter binding | nM |
-| K_open | Basal opening equilibrium in the absence of target | Dimensionless |
-| Pull | Allosteric coupling between target binding and cage opening | Dimensionless |
-| lucKey | Reporter-key concentration in the assay | nM |
-
-The calculator reports fold-change, a best-case value for the selected pull, key-to-cage dominance ratio, limiting regime, recommendations, and warnings. It also plots how changing lucKey or K_open affects the result. These plots vary one quantity at a time while holding the others at their current values.
-
-For a saturating-target assumption, leave the target-affinity and target-concentration fields blank. To model a finite target concentration, supply both K_target (nM) and target concentration (nM). You may enter K_target directly, or estimate it from a docking free-energy score using a reference score and measured affinity. Without a reference anchor, that conversion is a rough directional estimate. The optional clinical threshold adds a comparison against a user-specified fold-change cutoff.
-
-The **How do I get K_open?** helper offers three routes: use the base lucCage estimate (0.001), estimate a change from latch mutations and a destabilization assumption, or choose a value from the published-variant table. These are estimates; use an experimental measurement when available.
-
-The **Analyze K_open Tuning** panel compares hypothetical latch destabilization scenarios against your current settings. You can optionally paste a latch sequence to identify candidate I/V positions and mark positions to preserve. Choose a conservative, moderate, or optimistic destabilization per mutation. This analysis does not design or validate mutations; it estimates how changing K_open could affect the model.
-
-### Reporter-key dosing
-
-Expand **Reporter-key dosing** below the calculator. Enter K_CK, total cage concentration, reporter-key stock concentration, and assay volume. Choose either the desired fraction of cage bound or a desired brightness/fold-change jump. The tool calculates the key concentration and stock volume to add, and plots the titration curve. Check the warnings and the volume against your pipetting range before preparing an assay.
-
-## Design Map
-
-Open **Design Map** to compare two parameters across a grid. Start with a preset question or choose **Custom**. Presets cover cage tightness versus pull, key concentration and affinity, temperature response, and minimum detectable target. Set the remaining design values under **Your design**, choose the metric, and draw the map.
-
-In custom mode, choose x and y parameters, their ranges, number of steps, and linear or logarithmic spacing. Log spacing is useful when values span orders of magnitude. The map can show contours and can apply feasibility constraints such as a minimum fold-change. Hover or pin a point to read its values. Export the plot as PNG or the underlying grid as CSV.
-
-The temperature preset needs heat-response data to make a temperature-dependent prediction. Under **Advanced**, supply the relevant enthalpy (dH), heat-capacity change (dCp), and, where available, melting temperature (Tm) values for the latch/cage, key, or target interaction. If the needed data are absent, the interface warns that the calculation remains isothermal; changing the temperature slider alone does not create a temperature model. Temperature values are in kelvin in the API and are also shown in Celsius in the interface.
-
-The **Mark suggested designs** control runs inverse design for a target fold-change and overlays combinations that meet it when the map axes are cage looseness and key concentration. The API also exposes inverse solving for other supported parameter combinations.
-
-## Command line
-
-The CLI covers serving the app, scanning sequences, fold-change calculation, and grafting. Run `lockr --help` or a subcommand's `--help` for the full option list.
-
-### Scan a sequence
+### Option 2, command line
+Scan a binder for cage-key liabilities. This also runs the same helical structure pre-check as the web app first, so the output leads with a Structure line (helix confidence, band, and any shape issues) before the charge liability numbers:
 
 ```bash
-lockr scan LISDAELEAIFAEELDC
-lockr scan LISDAELEAIFAEELDC --ph 7.4
-lockr scan LISDAELEAIFAEELDC --window 1:17 --preserve 1,2,11,12,15
-lockr scan LISDAELEAIFAEELDC --policy neutralizing
-lockr scan LISDAELEAIFAEELDC --no-suggest
-lockr scan --file sequences.fasta
+lockr scan SEQUENCE
+lockr scan SEQUENCE --ph 7.4                     # pH of the intended solution
+lockr scan SEQUENCE --window 1:17                # only scan this residue window
+lockr scan SEQUENCE --preserve 1,2,11,12,15      # never mutate these binding residues
+lockr scan SEQUENCE --policy conservative        # D->N, E->Q (keeps shape and H-bonding)
+lockr scan SEQUENCE --policy neutralizing        # D->A, E->A
+lockr scan SEQUENCE --no-suggest                 # skip the variant suggestion
+lockr scan SEQUENCE --json                       # machine-readable output
+lockr scan --file sequences.fasta                # FASTA, raw, or mixed input
 lockr scan --file sequences.fasta --json
 ```
 
-`--window START:END` and `--preserve` use 1-based binder positions. The default policy is `conservative`. Input files may contain FASTA records or plain sequences, one per line. `--json` emits a `results` array for scripts instead of the readable summary.
-
-### Calculate fold-change
+Predict fold-change:
 
 ```bash
 lockr fc --k-ck 10 --k-open 0.001 --pull 10 --luckey 500
@@ -152,47 +90,71 @@ lockr fc --k-ck 10 --k-open 0.001 --pull 10 --luckey 500 --k-target 50 --target 
 lockr fc --k-ck 10 --k-open 0.001 --pull 10 --luckey 500 --json
 ```
 
-K_CK, lucKey, K_target, and target concentration are in nM. K_open and pull are dimensionless. `--k-target` and `--target` must be supplied together; omit both for saturating target. The CLI accepts the same thermodynamic core calculation as the web calculator, but the temperature controls are available through the API and Design Map.
+Leave `--k-target`/`--target` off to assume the target is fully saturating. All values are in nM except from `--k-open` and `--pull`, which are dimensionless.
 
-### Graft a binder
+Graft a binder into the lucCage latch (needs PyRosetta, see above):
 
 ```bash
-lockr graft LISDAELEAIFAEELDC
-lockr graft LISDAELEAIFAEELDC --position 327
-lockr graft LISDAELEAIFAEELDC --latch-start 325 --latch-end 359
-lockr graft LISDAELEAIFAEELDC --out grafted.pdb
-lockr graft --status
+lockr graft SEQUENCE                             # scans every latch position and keeps the best
+lockr graft SEQUENCE --position 327              # graft at one specific position instead of scanning all possible residues
+lockr graft SEQUENCE --latch-start 325 --latch-end 359  # override the latch window on the template
+lockr graft SEQUENCE --out grafted.pdb           # saves the grafted structure to a specific path
+lockr graft SEQUENCE --json
+lockr graft --status                             # check whether PyRosetta and the template are even available
 ```
 
-Binder length is limited to 35 residues. Without `--position`, the command scans the latch window for the best-scoring position. `--status` reports whether PyRosetta and the bundled template are available. Grafting requires the optional dependency.
-
-## API and additional analysis
-
-The local service exposes JSON endpoints for the web app and for scripts. Start it with `lockr serve`, then inspect the exact request and response models at `/docs` or `/openapi.json`.
-
-Beyond the web workflows, the API includes:
-
-- **Parameter sweeps:** vary one supported parameter and return fold-change values across the requested range.
-- **Assembly verification:** check a full sequence against a latch window, graft coordinates, spacer/linker positions, protected motifs, and an expected total length. It can also screen candidate variants against a protected region. Positions are 1-based; translate binder-local mutation positions to full-construct positions before submitting them.
-- **Sequence checks:** locate the configured SmBiT reporter motif and report its position and sequence warnings.
-- **Inverse design:** find parameter combinations that meet a target fold-change or range, with feasible solutions and a robust point when one exists. Mutation-map requests rank possible latch substitutions against a requested free-energy change; those rankings are estimates, not mutation recommendations validated in the lab.
-- **Design landscape and slices:** calculate a two-axis grid or a one-axis slice, with optional constraints and temperature-dependence inputs.
-- **K_open scenarios and dosing:** the same supporting calculations used by the web interface.
-
-The API is versioned through the request schemas rather than a separate version prefix. Use `/docs` as the source of truth for endpoint paths and accepted fields, since schemas can evolve with the tool.
-
-## Interpreting results
-
-These outputs help prioritize designs; they do not establish that a biosensor will fold, bind its target, or produce a given luminescence signal. The scanner's liability calibration is based on limited ECLIPSE reference data, helix confidence comes from sequence heuristics, and graft scores depend on the template and modeling assumptions. For experiments, confirm affinities and basal opening with measurements and validate candidate constructs in the assay conditions you plan to use.
-
-The thermodynamic engine uses a shared three-state model. Its equations are general to the model, but defaults such as K_open, K_CK, lucKey, and calibration values are scaffold-specific. See [docs/README.md](docs/README.md) for the engine map and links to the thermodynamics, calibration, sequence-liability, and assembly notes.
-
-## Help
+### More help
 
 ```bash
-lockr --help
 lockr scan --help
 lockr fc --help
-lockr graft --help
 lockr serve --help
+lockr graft --help
 ```
+
+## Scanner
+
+Open the **Scanner** tabs and select a single-sequence option or a batch mode. The sequences can only be inputted with the standard 20 amino acids.
+
+The original and charge-optimzied binders can be grafted into the LOCKR system via the PyRosetta module, which is ian optional dependancy.
+
+### Scan Procedure
+
+Paste the binder sequence and select the solution's pH (defaulted to 7.4). The scan can be run and the following results are included:
+
+— **Structural Check:** This checks whether the sequence is a helix or not by estimating helix propensity, hydrophobic moments, and potential stabilizing salt bridges. Lower score -> less confidence in grafting compatibility
+
+— **Liability Score and Band:** Summarizes acidic residues counted in a selected window of the binder. A chart shows contirbutions per resdiues and which residues specifically drive liability. Acidic residues in a preserved positions are not counted for the score.
+
+— **Net charge:** Calculated with the slected pH value
+
+— **Estimated K_CK** A calibrated estimate that was derived from the libaility model. It's calibrated using the ECLIPSE data set.
+
+— **Suggested Variant:** Changes the flagged amino acid residues while leaving the preserved psoitions alone. There are 2 methods for substitution: Conservative(D->N and E->Q) and Neutralizing(D->A and D->E)
+
+
+
+## Calculator & Dosing
+
+### Fold-change calculator
+
+The **Calculator & Dosing** tab starts with example ECLIPSE values. You can choose a preset or enter your own:
+
+
+The calculator reports fold-change, a best-case value for the selected pull, key-to-cage dominance ratio, limiting regime, recommendations, and warnings. It also plots how changing LucKey over time affects fold-change in the form of a graph.
+
+To model a finite target concentration, input both K_target (nM) and target concentration (nM). K_target can be entered directly, or estimated from a docking free-energy score. Without a reference anchor, that conversion is a rough directional estimate. The optional clinical threshold adds a comparison against a user-specified fold-change cutoff.
+
+
+### Reporter-key dosing
+
+Expand **Reporter-key dosing** below the calculator. Enter K_CK, total cage concentration, reporter-key stock concentration, and assay volume. Choose either the desired fraction of cage bound or a desired brightness/fold-change jump. The tool calculates the key concentration and stock volume to add, and plots the titration curve. Check the warnings and the volume against your pipetting range before preparing an assay.
+
+**Reporter Key Dosing** can be expanded as a section in the Clauclator tab and you enter specific parameters like K_CK, Cage cocnentration, key stock concentration, and assay volume. These values, alongside a desired fold-change, will work together to calculate for a key concentration with a stock volume to add, while also plotting it in a titration curve.
+
+## Design Map
+
+Presets cover cage tightness versus pull, key concentration and affinity, temperature response, and minimum detectable target. Set the preset and input the desired values to plot the design map. The design map is utilzied to compare the effects of 2 parameters on fold change like k_open and pull strength.
+
+
+The **Mark suggested designs** control runs inverse design for a target fold-change and overlays combinations that meet it when the map axes are cage looseness and key concentration. The API also exposes inverse solving for other supported parameter combinations.
