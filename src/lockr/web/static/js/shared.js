@@ -20,7 +20,9 @@ function initTabs() {
     btn.addEventListener("click", () => showTab(btn.dataset.tab));
   });
   const initial = location.hash.replace("#", "") || "scanner";
-  showTab(["scanner", "calculator"].includes(initial) ? initial : "scanner");
+  // Dosing lives inside the calculator tab now; old #dosing links still land somewhere sensible.
+  const wanted = initial === "dosing" ? "calculator" : initial;
+  showTab(["scanner", "calculator", "landscape"].includes(wanted) ? wanted : "scanner");
 }
 
 let toastTimer = null;
@@ -70,6 +72,31 @@ function formatConcNm(nm) {
     }
   }
   return `${molar} M`;
+}
+
+// One vocabulary for the whole app. The engine, the CLI and the API keep their
+// biophysics names; every sentence a student reads goes through here first.
+// Longest keys first, so "lucKey/K_CK" wins over "K_CK".
+const PLAIN_WORDS = [
+  ["Latch (K_open) mutations", "Changing the cage latch"],
+  ["lucKey/K_CK", "the key-to-grip ratio"],
+  ["K_open-limited", "Cage-limited"],
+  ["Key-limited", "Key-limited"],
+  ["fold-change", "brightness jump"],
+  ["fold change", "brightness jump"],
+  ["Fold-change", "Brightness jump"],
+  ["Fold change", "Brightness jump"],
+  ["K_target", "target grip strength"],
+  ["K_open", "cage looseness"],
+  ["K_CK", "key grip strength"],
+  ["lucKey", "key amount"],
+  ["pull strength", "target pull strength"],
+  ["EC50", "half-signal amount"],
+];
+
+function plainify(text) {
+  if (!text) return text;
+  return PLAIN_WORDS.reduce((s, [from, to]) => s.split(from).join(to), String(text));
 }
 
 function roundSig(x, sig) {

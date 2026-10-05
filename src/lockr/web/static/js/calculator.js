@@ -213,7 +213,7 @@ function calcRenderVerdict(result, values) {
   qualityEl.textContent = result.quality;
   qualityEl.className = `result-quality ${result.quality}`;
 
-  calcEl("calc-interpretation").textContent = result.interpretation;
+  calcEl("calc-interpretation").textContent = plainify(result.interpretation);
   calcEl("calc-metric-max").textContent = formatFoldChange(result.max_fold_change);
   calcEl("calc-metric-ratio").textContent = roundSig(result.dominance_ratio, 3);
   calcEl("calc-metric-fraction").textContent = `${roundSig(result.fraction_of_dominance_ratio * 100, 3)}%`;
@@ -222,13 +222,13 @@ function calcRenderVerdict(result, values) {
   const banner = calcEl("calc-regime-banner");
   banner.className = `verdict-banner ${regimeToCssClass(result.regime)}`;
   calcEl("calc-regime-title").textContent = REGIME_TITLES[result.regime] || "Regime.";
-  calcEl("calc-regime-body").textContent = result.verdict;
+  calcEl("calc-regime-body").textContent = plainify(result.verdict);
 
   const list = calcEl("calc-recommendations");
   list.innerHTML = "";
   result.recommendations.forEach((rec) => {
     const li = document.createElement("li");
-    li.textContent = rec;
+    li.textContent = plainify(rec);
     list.appendChild(li);
   });
 
@@ -237,7 +237,7 @@ function calcRenderVerdict(result, values) {
   (result.warnings || []).forEach((w) => {
     const div = document.createElement("div");
     div.className = "field-error";
-    div.textContent = w;
+    div.textContent = plainify(w);
     warningsEl.appendChild(div);
   });
 }

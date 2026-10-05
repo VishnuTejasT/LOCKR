@@ -1,0 +1,18 @@
+/Users/vishnut/igem/LOCKR/INSTALL.md
+/Users/vishnut/igem/LOCKR/README.md
+/Users/vishnut/igem/LOCKR/docs/README.md
+/Users/vishnut/igem/LOCKR/docs/assembly.md
+/Users/vishnut/igem/LOCKR/docs/calibration.md
+/Users/vishnut/igem/LOCKR/docs/charge.md
+/Users/vishnut/igem/LOCKR/docs/liability.md
+/Users/vishnut/igem/LOCKR/docs/models.md
+/Users/vishnut/igem/LOCKR/docs/thermo.md
+/Users/vishnut/igem/LOCKR/lockr-tool-plan.md
+/Users/vishnut/igem/LOCKR/lockr-tool-ui-ux-spec.md
+/Users/vishnut/igem/LOCKR/phase-1.5-assembly-prompt.md
+/Users/vishnut/igem/LOCKR/src/lockr/web/index.html
+/Users/vishnut/igem/LOCKR/ECLIPSE Thermodynamics Documentation.pdf
+/Users/vishnut/igem/LOCKR/ECLIPSE_COMPLETE_FINAL_DOCUMENTATION.pdf
+/Users/vishnut/igem/LOCKR/ECLIPSE_Thermodynamics_Documentation.pdf
+/Users/vishnut/igem/LOCKR/Langan_LOCKR (1).pdf
+/Users/vishnut/igem/LOCKR/Rubio_et_al_Nature_COVID_LOCKR_sensors.pdf

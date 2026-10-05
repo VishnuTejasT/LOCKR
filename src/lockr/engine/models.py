@@ -209,6 +209,17 @@ class LatchWindow:
 
 
 @dataclass
+class DosingResult:
+    """Back-calculated Key dose for a target Cage occupancy, plus the pipetting volume."""
+
+    key_conc: float
+    fraction_bound: float
+    volume_to_add: float
+    warnings: list[str] = field(default_factory=list)
+    titration: list[tuple[float, float]] = field(default_factory=list)
+
+
+@dataclass
 class GraftSpec:
     """Specifies the parameters for grafting a binder into a sequence."""
     binder: str

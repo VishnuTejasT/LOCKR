@@ -13,8 +13,10 @@ from fastapi import APIRouter
 
 from lockr.engine import thermo
 from lockr.engine.models import SensorParams
+from lockr.engine.temperature import shift_constant, weakest_mode
 
 from ..errors import ApiError
+from ..schemas.common import build_specs
 from ..schemas.kopen import KopenScenario, KopenScenariosRequest, KopenScenariosResponse
 
 router = APIRouter()
@@ -45,18 +47,25 @@ def _scenario(k_open: float, params: SensorParams, pull: float, mutations: int,
 
 @router.post("/kopen-scenarios", response_model=KopenScenariosResponse)
 def kopen_scenarios(request: KopenScenariosRequest) -> KopenScenariosResponse:
-    params = SensorParams(K_open=request.k_open_current, K_CK=request.k_ck * _NM_TO_M,
+    specs, warnings = build_specs(request.thermo)
+    T = request.temperature_K
+    # Identity at the default temperature, so the existing what-if grid is unchanged.
+    k_open_current, w_latch = shift_constant(request.k_open_current, T, specs["dG_latch_cage"])
+    k_ck_m, w_key = shift_constant(request.k_ck * _NM_TO_M, T, specs["dG_key_cage"])
+    warnings += w_latch + w_key
+
+    params = SensorParams(K_open=k_open_current, K_CK=k_ck_m,
                           lucKey=request.luckey * _NM_TO_M)
 
     try:
         baseline_fc = thermo.max_fold_change(Kd=1.0, pull=request.pull, params=params)
-        baseline = _scenario(request.k_open_current, params, request.pull, 0, "baseline", None, baseline_fc)
+        baseline = _scenario(k_open_current, params, request.pull, 0, "baseline", None, baseline_fc)
         baseline = baseline.model_copy(update={"helps": "unchanged"})
 
         scenarios = []
         for preset, destab in _PRESETS.items():
             for n in (1, 2, 3):
-                k_open_new = thermo.k_open_from_destab(request.k_open_current, n, destab, params.RT)
+                k_open_new = thermo.k_open_from_destab(k_open_current, n, destab, params.RT)
                 scenarios.append(_scenario(k_open_new, params, request.pull, n, preset, destab, baseline_fc))
     except (ZeroDivisionError, OverflowError, ValueError):
         raise ApiError("UNDEFINED_RESULT", _UNDEFINED_RESULT_MESSAGE)
@@ -66,8 +75,12 @@ def kopen_scenarios(request: KopenScenariosRequest) -> KopenScenariosResponse:
     if not all(math.isfinite(v) for v in check_values):
         raise ApiError("UNDEFINED_RESULT", _UNDEFINED_RESULT_MESSAGE)
 
-    crossover_luckey_nm = request.k_open_current * request.k_ck
+    crossover_luckey_nm = k_open_current * k_ck_m / _NM_TO_M
 
     return KopenScenariosResponse(dominance_ratio=params.luckey_ratio,
                                   crossover_luckey_nm=crossover_luckey_nm,
-                                  baseline=baseline, scenarios=scenarios)
+                                  baseline=baseline, scenarios=scenarios,
+                                  temperature_K=T,
+                                  thermo_mode=weakest_mode([specs[k].mode for k in
+                                                            ("dG_latch_cage", "dG_key_cage")]),
+                                  warnings=warnings)

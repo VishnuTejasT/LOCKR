@@ -6,9 +6,11 @@ import math
 from fastapi import APIRouter
 
 from lockr.engine import thermo
-from lockr.engine.models import SensorParams
+from lockr.engine.models import RT_37C, SensorParams
+from lockr.engine.temperature import R_KCAL, T_REF_DEFAULT, shift_constant, weakest_mode
 
 from ..errors import ApiError
+from ..schemas.common import build_specs
 from ..schemas.foldchange import FoldChangeRequest, FoldChangeResponse
 
 router = APIRouter()
@@ -51,13 +53,25 @@ def _quality_and_interpretation(fc: float, max_fc: float, at_saturation: bool) -
 
 @router.post("/foldchange", response_model=FoldChangeResponse)
 def foldchange(request: FoldChangeRequest) -> FoldChangeResponse:
-    params = SensorParams(K_open=request.k_open, K_CK=request.k_ck * _NM_TO_M,
-                          lucKey=request.luckey * _NM_TO_M)
+    T = request.temperature_K
+    specs, thermo_notes = build_specs(request.thermo)
+    # At the default 298.15 K, and in isothermal mode, every constant comes back untouched.
+    k_open, w_latch = shift_constant(request.k_open, T, specs["dG_latch_cage"])
+    k_ck_m, w_key = shift_constant(request.k_ck * _NM_TO_M, T, specs["dG_key_cage"])
+    k_target_m, w_target = shift_constant(
+        request.k_target * _NM_TO_M if request.k_target is not None else None, T,
+        specs["dG_target_binder"])
+    used = ["dG_latch_cage", "dG_key_cage"] + (["dG_target_binder"] if k_target_m else [])
+    thermo_notes += w_latch + w_key + w_target
+
+    # RT only feeds the dG helpers, not the fold change, but keep the scaffold default at
+    # T_ref so nothing about the default request changes.
+    params = SensorParams(K_open=k_open, K_CK=k_ck_m, lucKey=request.luckey * _NM_TO_M,
+                          RT=RT_37C if T == T_REF_DEFAULT else R_KCAL * T)
 
     try:
         at_saturation = request.target_conc is None
         max_fc = thermo.max_fold_change(Kd=1.0, pull=request.pull, params=params)
-        k_target_m = request.k_target * _NM_TO_M if request.k_target is not None else None
         if not at_saturation:
             Kd = k_target_m
             target_conc = request.target_conc * _NM_TO_M
@@ -78,13 +92,15 @@ def foldchange(request: FoldChangeRequest) -> FoldChangeResponse:
 
     quality, interpretation = _quality_and_interpretation(fc, max_fc, at_saturation)
 
-    warnings = []
+    warnings = list(thermo_notes)
     if request.pull > 50:
         # no documented ECLIPSE case goes above ~30; this far out is more likely a units slip.
         warnings.append("pull strength of >50 has no documented improvement, so verify your units and expectations.")
 
     return FoldChangeResponse(
         fold_change=fc,
+        temperature_K=T,
+        thermo_mode=weakest_mode([specs[k].mode for k in used]),
         max_fold_change=max_fc,
         quality=quality,
         interpretation=interpretation,

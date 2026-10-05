@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from pydantic import BaseModel, field_validator, model_validator
 
+from lockr.engine.temperature import T_REF_DEFAULT
+
+from .common import ThermoSpecIn, validate_temperature, validate_thermo_keys
+
 
 class FoldChangeRequest(BaseModel):
     k_ck: float
@@ -12,6 +16,18 @@ class FoldChangeRequest(BaseModel):
     luckey: float
     k_target: float | None = None
     target_conc: float | None = None
+    temperature_K: float = T_REF_DEFAULT
+    thermo: dict[str, ThermoSpecIn] = {}
+
+    @field_validator("temperature_K")
+    @classmethod
+    def _temperature_in_range(cls, v):
+        return validate_temperature(v)
+
+    @field_validator("thermo")
+    @classmethod
+    def _thermo_keys(cls, v):
+        return validate_thermo_keys(v)
 
     @field_validator("k_ck", "k_open", "luckey")
     @classmethod
@@ -45,6 +61,8 @@ class FoldChangeRequest(BaseModel):
 
 class FoldChangeResponse(BaseModel):
     fold_change: float
+    temperature_K: float = T_REF_DEFAULT
+    thermo_mode: str = "isothermal"
     max_fold_change: float
     quality: str
     interpretation: str
