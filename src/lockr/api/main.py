@@ -7,7 +7,7 @@ from starlette.responses import Response
 
 from .errors import install_error_handlers
 from .routes import (assembly, dosing, foldchange, graft, inverse, kopen, landscape,
-                     scan, sweep)
+                     scan, sweep, temperature_window)
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
@@ -32,6 +32,7 @@ app.include_router(graft.router)
 app.include_router(dosing.router)
 app.include_router(inverse.router)
 app.include_router(landscape.router)
+app.include_router(temperature_window.router)
 
 app.mount("/static", _RevalidatingStatic(directory=WEB_DIR / "static"), name="static")
 

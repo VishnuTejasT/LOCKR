@@ -105,12 +105,17 @@ function lsConstraints() {
     .filter((c) => Number.isFinite(c.value));
 }
 
-function lsRequestBody() {
+function lsFixedParams() {
   const fixed = {};
   LS_FIXED_FIELDS.forEach((f) => {
     const v = lsNum(`ls-fixed-${f}`);
     if (v !== null) fixed[f] = v;
   });
+  return fixed;
+}
+
+function lsRequestBody() {
+  const fixed = lsFixedParams();
   const body = {
     x_axis: lsAxisSpec("ls-x"),
     y_axis: lsAxisSpec("ls-y"),
@@ -564,6 +569,69 @@ function lsRenderReadouts() {
     : `<div class="ls-readout-title">Pinned</div><div class="help-text">Click the plot to pin a design here.</div>`;
 }
 
+function lsCelsius(K) { return roundSig(K - 273.15, 3); }
+
+// Only shown on the temperature view, where "is this design safe at 37 C" is the real question.
+async function lsLoadConfidence() {
+  const data = lsState.data;
+  const card = lsEl("ls-confidence");
+  const axis = [data.x, data.y].find((a) => a.param === "temperature_K");
+  if (!axis) {
+    card.style.display = "none";
+    return;
+  }
+
+  const rule = lsConstraints().find((r) => r.metric === data.metric);
+  const body = {
+    fixed: lsFixedParams(),
+    min: axis.values[0],
+    max: axis.values[axis.values.length - 1],
+    metric: data.metric,
+    thermo: lsThermoBlock(),
+  };
+  if (rule) {
+    body.threshold = rule.value;
+    body.op = rule.op;
+  }
+
+  try {
+    const result = await apiPost("/api/temperature_scan", body);
+    lsRenderConfidence(result, rule);
+  } catch (err) {
+    card.style.display = "none";
+  }
+}
+
+function lsRenderConfidence(result, rule) {
+  const best = result.best_temperature;
+  const unit = LS_METRIC_UNITS[result.metric] || "";
+  const pinned = Math.round((1 - best.interior_fraction) * 100);
+
+  let lede = `We ran <b>${result.draws}</b> simulated copies of your design, each with slightly ` +
+    `different numbers, because your real protein will not match the prediction exactly. ` +
+    `The best temperature came out around <b>${lsCelsius(best.median)} °C</b> ` +
+    `(most runs landed between ${lsCelsius(best.p05)} and ${lsCelsius(best.p95)} °C).`;
+  if (pinned >= 50) {
+    lede += ` In ${pinned}% of runs the best temperature was simply the coldest or hottest end ` +
+      `of the range you picked, which means colder or hotter is just better here, with no sweet spot.`;
+  }
+  lsEl("ls-confidence-lede").innerHTML = lede;
+
+  lsEl("ls-confidence-rows").innerHTML = result.checkpoints.map((c) => {
+    const chance = c.probability === null ? ""
+      : `<b>${Math.round(c.probability * 100)}%</b> chance of passing your rule`;
+    return `<div class="ls-readout-row"><span>${c.label}</span>
+      <b>${lsHumanNumber(c.median, 3)}${unit}</b>
+      <span>usually ${lsHumanNumber(c.p05, 3)} to ${lsHumanNumber(c.p95, 3)}${unit}</span>
+      <span>${chance}</span></div>`;
+  }).join("") || `<div class="help-text">None of the usual working temperatures (4, 25, 37 °C)
+    fall inside the range you plotted.</div>`;
+
+  lsEl("ls-confidence-note").textContent =
+    `Assumed spread on each input: ${result.assumptions.join("; ")}. ` + (result.warnings[result.warnings.length - 1] || "");
+  lsEl("ls-confidence").style.display = "block";
+}
+
 function lsRenderRuleSummary() {
   const rules = lsConstraints();
   const change = ' <button type="button" data-ls-open-advanced>Change</button>';
@@ -654,6 +722,7 @@ async function lsPlot() {
     lsRenderReadouts();
     lsRenderWarnings();
     lsRenderRobust();
+    lsLoadConfidence();
   } catch (err) {
     const el = lsEl("ls-error");
     el.style.display = "block";

@@ -7,6 +7,7 @@ from pydantic import BaseModel, field_validator, model_validator
 from lockr.engine.landscape import (AXIS_PARAMS, METRICS, OPTIONAL_PARAMS, REQUIRED_PARAMS,
                                     SCALES, _OPS)
 from lockr.engine.temperature import T_REF_DEFAULT
+from lockr.engine.temperature_mc import DEFAULT_DRAWS, MAX_DRAWS, SIGMA_KEYS
 
 from .common import ThermoSpecIn, validate_temperature, validate_thermo_keys
 
@@ -238,5 +239,108 @@ class SliceResponse(BaseModel):
     tm_band: TmBandOut | None = None
     temperature_K: float | None = T_REF_DEFAULT
     thermo_mode: str = "isothermal"
+    warnings: list[str] = []
+    units: dict[str, str] = {}
+
+
+class SpreadIn(BaseModel):
+    """How far each input is assumed to wander. Omitted fields take the default spread."""
+
+    dH_latch: float | None = None
+    dH_key: float | None = None
+    dCp_latch: float | None = None
+    k_open_log10: float | None = None
+    k_ck_log10: float | None = None
+    pull_rel: float | None = None
+
+    @field_validator("*")
+    @classmethod
+    def _non_negative(cls, v, info):
+        if v is not None and v < 0:
+            raise ValueError(f"{info.field_name} spread must be >= 0")
+        return v
+
+    def to_engine(self) -> dict:
+        return {k: v for k, v in self.model_dump().items() if k in SIGMA_KEYS and v is not None}
+
+
+class TemperatureScanRequest(BaseModel):
+    fixed: FixedParams = FixedParams()
+    min: float = 277.15
+    max: float = 320.15
+    metric: str = "fold_change"
+    thermo: dict[str, ThermoSpecIn] = {}
+    spreads: SpreadIn = SpreadIn()
+    draws: int = DEFAULT_DRAWS
+    threshold: float | None = None
+    op: str = ">="
+    seed: int = 0
+
+    @field_validator("metric")
+    @classmethod
+    def _known_metric(cls, v):
+        return validate_metric(v)
+
+    @field_validator("min", "max")
+    @classmethod
+    def _temperature_in_range(cls, v):
+        return validate_temperature(v)
+
+    @field_validator("thermo")
+    @classmethod
+    def _thermo_keys(cls, v):
+        return validate_thermo_keys(v)
+
+    @field_validator("op")
+    @classmethod
+    def _known_op(cls, v):
+        if v not in _OPS:
+            raise ValueError(f"op must be one of {tuple(_OPS)}")
+        return v
+
+    @field_validator("draws")
+    @classmethod
+    def _draws_in_range(cls, v):
+        if not 1 <= v <= MAX_DRAWS:
+            raise ValueError(f"draws must be between 1 and {MAX_DRAWS}")
+        return v
+
+    @model_validator(mode="after")
+    def _usable(self):
+        if self.min >= self.max:
+            raise ValueError("temperature min must be < max")
+        _check_coverage(self.fixed, ())
+        return self
+
+
+class CheckpointOut(BaseModel):
+    temperature_K: float
+    label: str
+    median: float
+    p05: float
+    p95: float
+    probability: float | None = None
+
+
+class BestTemperatureOut(BaseModel):
+    median: float
+    p05: float
+    p95: float
+    interior_fraction: float
+
+
+class TemperatureScanResponse(BaseModel):
+    metric: str
+    temperatures: list[float]
+    median: list[float | None]
+    p05: list[float | None]
+    p95: list[float | None]
+    best_temperature: BestTemperatureOut
+    checkpoints: list[CheckpointOut] = []
+    tm_band: TmBandOut | None = None
+    draws: int = 0
+    threshold: float | None = None
+    op: str = ">="
+    assumptions: list[str] = []
     warnings: list[str] = []
     units: dict[str, str] = {}

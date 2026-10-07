@@ -6,15 +6,16 @@ import numpy as np
 
 from fastapi import APIRouter
 
-from lockr.engine import landscape
+from lockr.engine import landscape, temperature_mc
 from lockr.engine.landscape import NEEDS_TARGET
 from lockr.engine.temperature import MODE_ISOTHERMAL, weakest_mode
 
 from ..errors import ApiError
 from ..schemas.common import build_specs
-from ..schemas.landscape import (NM_PARAMS, UNITS, AxisOut, ContourOut, LandscapeRequest,
-                                 LandscapeResponse, RobustOut, SliceRequest, SliceResponse,
-                                 SlackOut, TmBandOut)
+from ..schemas.landscape import (NM_PARAMS, UNITS, AxisOut, BestTemperatureOut, CheckpointOut,
+                                 ContourOut, LandscapeRequest, LandscapeResponse, RobustOut,
+                                 SliceRequest, SliceResponse, SlackOut, TemperatureScanRequest,
+                                 TemperatureScanResponse, TmBandOut)
 
 router = APIRouter(prefix="/api")
 
@@ -23,6 +24,10 @@ _TEMP = "temperature_K"
 
 # Metrics reported in nM, so the engine's M come back in the units the request used.
 _NM_METRICS = ("limit_of_detection",)
+
+# Only these two decide whether a temperature view means anything. A target binder held
+# fixed with temperature costs fidelity, not meaning, so it warns instead of refusing.
+_TEMPERATURE_CRITICAL = ("dG_latch_cage", "dG_key_cage")
 
 
 def _to_engine(name: str, value: float | None) -> float | None:
@@ -33,6 +38,10 @@ def _to_engine(name: str, value: float | None) -> float | None:
 
 def _metric_to_api(metric: str, grid: np.ndarray) -> np.ndarray:
     return grid / _NM_TO_M if metric in _NM_METRICS else grid
+
+
+def _to_engine_metric(metric: str, value: float) -> float:
+    return value * _NM_TO_M if metric in _NM_METRICS else value
 
 
 def _nullable(grid: np.ndarray) -> list:
@@ -46,9 +55,18 @@ def _used_spec_keys(k_target) -> list[str]:
     return keys + (["dG_target_binder"] if k_target is not None else [])
 
 
+def _target_binder_note(specs, used: list[str]) -> list[str]:
+    """Say so when the target binder's Kd is being held fixed across temperature."""
+    if "dG_target_binder" not in used or specs["dG_target_binder"].mode is not MODE_ISOTHERMAL:
+        return []
+    return ["The target binder's Kd has no dH_ref, so it is held fixed while the cage and key "
+            "constants move with temperature. The shape of the curve is still meaningful; the "
+            "absolute numbers are optimistic wherever binding weakens with heat."]
+
+
 def _refuse_isothermal(specs, used: list[str], field: str) -> None:
     """Reject a temperature axis with no dH_ref."""
-    iso = [k for k in used if specs[k].mode is MODE_ISOTHERMAL]
+    iso = [k for k in used if k in _TEMPERATURE_CRITICAL and specs[k].mode is MODE_ISOTHERMAL]
     if not iso:
         return
     names = ", ".join(iso)
@@ -159,6 +177,7 @@ def landscape_grid(request: LandscapeRequest) -> LandscapeResponse:
 
     temp_axis = next((a for a, s in (("x", x_spec), ("y", y_spec)) if s.param == _TEMP), None)
     if temp_axis is not None:
+        warnings += _target_binder_note(specs, used)
         axis_spec = x_spec if temp_axis == "x" else y_spec
         warnings += [w for w in landscape.temperature_axis_warnings(
             {k: specs[k] for k in used}, axis_spec.min, axis_spec.max) if w not in warnings]
@@ -195,6 +214,7 @@ def landscape_slice(request: SliceRequest) -> SliceResponse:
                        f"in nM.", field="fixed.k_target")
     if axis.param == _TEMP:
         _refuse_isothermal(specs, used, "axis.param")
+        warnings += _target_binder_note(specs, used)
 
     xs = _axis_array(axis, axis.steps)
     values = {p: _to_engine(p, getattr(fixed, p))
@@ -218,5 +238,61 @@ def landscape_slice(request: SliceRequest) -> SliceResponse:
         temperature_K=None if axis.param == _TEMP else request.temperature_K,
         thermo_mode=weakest_mode([specs[k].mode for k in used]),
         warnings=warnings,
+        units=UNITS,
+    )
+
+
+def _metric_value_to_api(metric: str, value: float | None) -> float | None:
+    return value if value is None or metric not in _NM_METRICS else value / _NM_TO_M
+
+
+@router.post("/temperature_scan", response_model=TemperatureScanResponse)
+def temperature_scan(request: TemperatureScanRequest) -> TemperatureScanResponse:
+    specs, warnings = build_specs(request.thermo)
+    fixed = request.fixed
+    used = _used_spec_keys(fixed.k_target)
+
+    if request.metric in NEEDS_TARGET and fixed.k_target is None:
+        raise ApiError("VALIDATION_ERROR",
+                       f"metric '{request.metric}' needs fixed.k_target, the target binder Kd "
+                       f"in nM.", field="fixed.k_target")
+    # Sampling a constant that does not move with temperature is as meaningless as plotting it.
+    _refuse_isothermal(specs, used, "thermo")
+    warnings += _target_binder_note(specs, used)
+
+    base = {p: _to_engine(p, getattr(fixed, p))
+            for p in landscape.REQUIRED_PARAMS + landscape.OPTIONAL_PARAMS}
+    threshold = (None if request.threshold is None
+                 else _to_engine_metric(request.metric, request.threshold))
+
+    try:
+        result = temperature_mc.scan(
+            base=base, specs=specs, T_lo=request.min, T_hi=request.max,
+            metric=request.metric, sigmas=request.spreads.to_engine(), draws=request.draws,
+            threshold=threshold, op=request.op, seed=request.seed)
+    except ValueError as exc:
+        raise ApiError("VALIDATION_ERROR", str(exc))
+    except (OverflowError, ZeroDivisionError):
+        raise ApiError("UNDEFINED_RESULT",
+                       "These inputs produce an undefined result over this temperature range.")
+
+    to_api = lambda v: _metric_value_to_api(request.metric, v)
+    return TemperatureScanResponse(
+        metric=request.metric,
+        temperatures=result["temperatures"],
+        median=[to_api(v) for v in result["median"]],
+        p05=[to_api(v) for v in result["p05"]],
+        p95=[to_api(v) for v in result["p95"]],
+        best_temperature=BestTemperatureOut(**result["best_temperature"]),
+        checkpoints=[CheckpointOut(temperature_K=c["temperature_K"], label=c["label"],
+                                   median=to_api(c["median"]), p05=to_api(c["p05"]),
+                                   p95=to_api(c["p95"]), probability=c["probability"])
+                     for c in result["checkpoints"]],
+        tm_band=_tm_band_out(specs, used, "x", request.min, request.max),
+        draws=result["draws"],
+        threshold=request.threshold,
+        op=request.op,
+        assumptions=result["assumptions"],
+        warnings=warnings + result["warnings"],
         units=UNITS,
     )

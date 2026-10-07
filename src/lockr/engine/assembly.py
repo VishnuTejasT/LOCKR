@@ -172,16 +172,18 @@ def check_sequence(sequence: str) -> SequenceCheckResult:
             smbit_found = True
             smbit_position = (start, end)
         else:
-            warnings.append(f"SmBiT, {_SMBIT_MOTIF} was not found at the"
-                            "expected position. This usually means that there's a typo or a missing/duplicated chunk somewhere in the sequence. Check your sequence before scanning.")
+            warnings.append(
+                f"The glowing tag (SmBiT, {_SMBIT_MOTIF}) was not found at expected position "
+                f"{start}-{end}. That usually means a typo, or a missing or duplicated chunk "
+                f"somewhere in the sequence. Fix the sequence before scanning it.")
     elif length >= _MIN_LUCCAGE_LENGTH:
         idx = sequence.find(_SMBIT_MOTIF)
         if idx != -1:
             smbit_found = True
             smbit_position = (idx + 1, idx + len(_SMBIT_MOTIF))
-            warnings.append(f"The sequence length ({length}aa) doesn't match our known lucCage "
-                            "variants (359aa or 379aa). Please verify whether your sequence is complete. "
-                            )
+            warnings.append(
+                f"This sequence is {length} amino acids long, which doesn't match known lucCage "
+                f"variants (359 or 379). Check that it is complete before trusting the scan.")
 
     return SequenceCheckResult(length, smbit_found, smbit_position, warnings)
 
@@ -207,5 +209,7 @@ def filter_safe_variants(suggested_variants: list[VariantSuggestion],
             accepted.append(variant)
         else:
             pos = _mutation_position(hit)
-            rejected.append((variant, f"The substitution at {pos} falls inside protected region"))
+            rejected.append((variant, f"The substitution at position {pos} falls inside the "
+                                      f"protected region ({protected_region.start}-"
+                                      f"{protected_region.end}), so it was dropped."))
     return FilteredVariants(accepted, rejected)

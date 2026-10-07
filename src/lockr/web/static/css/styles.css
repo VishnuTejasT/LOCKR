@@ -768,3 +768,49 @@ textarea#scan-sequence { font-size: 15px; letter-spacing: 1px; }
 
 .ls-readout-row:last-child { border-bottom: none; }
 .ls-readout-row span { color: var(--text-muted); }
+
+/* Temperature Window view */
+.tw-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.tw-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.tw-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.tw-construct { margin-bottom: 12px; }
+.tw-binder {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin: 12px 0 4px;
+}
+.tw-binder legend {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 0 4px;
+}
+#tw-notes ul { margin: 4px 0 0; padding-left: 18px; }
+#tw-notes li { margin-bottom: 5px; }
+
+/* Temperature Window: the binder toggle that reveals the two coupled fields */
+.tw-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 4px;
+  font-size: 13.5px;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+
+.tw-toggle input { margin: 0; }

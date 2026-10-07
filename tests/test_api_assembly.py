@@ -90,4 +90,4 @@ def test_suggest_then_verify_assembly_round_trip_rejects_variant_inside_protecte
     body = response.json()
     assert body["variants"]["accepted"] == []
     assert len(body["variants"]["rejected"]) == 1
-    assert "falls inside protected region" in body["variants"]["rejected"][0]["reason"]
+    assert "falls inside the protected region" in body["variants"]["rejected"][0]["reason"]

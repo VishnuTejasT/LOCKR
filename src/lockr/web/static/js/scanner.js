@@ -419,6 +419,7 @@ function scanValidate(values) {
 function scanShowFieldErrors(errors) {
   scanEl("scan-window-error").textContent = errors.window || "";
   scanEl("scan-preserve-error").textContent = errors.preserve || "";
+  scanEl("scan-sequence-error").textContent = errors.sequence || "";
 }
 
 function scanBuildRequest(values, preservePositions) {
@@ -953,6 +954,10 @@ async function scanSubmit() {
       scanEl("scan-preserve-error").textContent = err.message;
     } else if (err.field === "sensitive_window") {
       scanEl("scan-window-error").textContent = err.message;
+    } else if (err.field && err.field.endsWith("sequence")) {
+      // the API names it sequences.0.sequence; pin it under the box it is about, not a
+      // toast that vanishes before anyone has read it
+      scanEl("scan-sequence-error").textContent = err.message;
     } else {
       showToast(`${err.code || "ERROR"}: ${err.message}`);
     }

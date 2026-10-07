@@ -15,6 +15,7 @@
       <button data-tab="scanner">Scanner</button>
       <button data-tab="calculator">Calculator &amp; Dosing</button>
       <button data-tab="landscape">Design Map</button>
+      <button data-tab="temperature">Temperature Window</button>
     </nav>
   </div>
 </header>
@@ -908,6 +909,13 @@
 
           <div class="card verdict-banner mixed" id="ls-robust" style="display:none;"></div>
 
+          <div class="card" id="ls-confidence" style="display:none;">
+            <h2 class="font-display" style="font-size:18px; margin-top:0;">How sure are we?</h2>
+            <p class="help-text" id="ls-confidence-lede"></p>
+            <div id="ls-confidence-rows"></div>
+            <div class="field-error" id="ls-confidence-note" style="margin-top:10px;"></div>
+          </div>
+
           <div class="two-col" style="gap:16px;">
             <div class="card ls-readout" id="ls-hover-readout"></div>
             <div class="card ls-readout" id="ls-pin-readout"></div>
@@ -929,6 +937,138 @@
     </div>
   </section>
 
+  <section class="tab-panel" data-tab="temperature">
+    <div class="screen-header">
+      <h1>Temperature Window</h1>
+      <p>Pick a construct and this sweeps the thermometer: which temperature gives the biggest brightness jump, and over what band of temperatures the design still clears your bar often enough to be worth building. Load two binders on the same cage to see which one travels better.</p>
+      <p class="help-text">The band comes from a Monte Carlo over the numbers nobody has measured yet, mainly the heat terms. It is an honest spread, not a prediction. Read the assumptions under the plot before you trust a window.</p>
+    </div>
+
+    <div class="two-col">
+      <div>
+        <div class="card">
+          <div class="preset-row" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <button type="button" id="tw-load-preset" class="btn-ghost">Load ECLIPSE example</button>
+            <span class="badge badge-uncalibrated" id="tw-placeholder-badge" style="display:none;">Example values, replace with real data</span>
+          </div>
+
+          <div id="tw-constructs"></div>
+          <button type="button" id="tw-add-construct" class="btn-ghost" style="margin-top:8px;">+ Add another construct</button>
+
+          <p class="ls-rule-summary" id="tw-bar-summary"></p>
+
+          <div class="field-row" style="display:flex; gap:8px; margin-top:20px; flex-wrap:wrap;">
+            <button type="button" id="tw-submit" class="btn-primary">Find the window</button>
+            <button type="button" id="tw-rerun-seed" class="btn-ghost">Re-run with same seed</button>
+          </div>
+          <div class="field-error" id="tw-error" style="display:none;"></div>
+
+          <details class="advanced" id="tw-advanced">
+            <summary>Advanced: heat priors, luciferase, sampling</summary>
+            <div class="card">
+              <strong class="font-display" style="font-size:15px;">Temperatures to sweep, and what counts as working</strong>
+            <div class="field-row">
+              <label for="tw-t-min">From <span class="unit-suffix">&deg;C</span></label>
+              <input id="tw-t-min" type="number" step="any" value="4">
+            </div>
+            <div class="field-row">
+              <label for="tw-t-max">To <span class="unit-suffix">&deg;C</span></label>
+              <input id="tw-t-max" type="number" step="any" value="45">
+            </div>
+            <div class="field-row">
+              <label for="tw-t-step">Step <span class="unit-suffix">&deg;C</span></label>
+              <input id="tw-t-step" type="number" step="any" value="1" min="0">
+            </div>
+            <div class="field-row">
+              <label for="tw-fc-threshold">Counts as working at<span class="help-tip" tabindex="0">?<span class="help-tip-body">The brightness jump a design has to reach before it counts as working. 2x is a common bar for a usable sensor.</span></span></label>
+              <input id="tw-fc-threshold" type="number" step="any" value="2" min="0">
+            </div>
+            <div class="field-row">
+              <label for="tw-confidence">...in at least this fraction of runs<span class="help-tip" tabindex="0">?<span class="help-tip-body">How often the design has to clear the bar across the simulated spread before a temperature is inside the window. 0.8 means four runs in five.</span></span></label>
+              <input id="tw-confidence" type="number" step="any" value="0.8" min="0" max="1">
+            </div>
+
+              <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
+              <p class="help-text">Leave a heat response (&Delta;H) blank on a construct and it is drawn from the prior below. The shipped priors are PLACEHOLDERS, not literature. Replace them before quoting a window.</p>
+
+              <div class="field-row">
+                <label>Latch-Cage &Delta;H prior <span class="unit-suffix">kcal/mol</span></label>
+                <div class="ls-axis-range">
+                  <label for="tw-prior-latch-mean">mean</label>
+                  <input id="tw-prior-latch-mean" type="number" step="any" placeholder="-12">
+                  <label for="tw-prior-latch-sd">sd</label>
+                  <input id="tw-prior-latch-sd" type="number" step="any" min="0" placeholder="4">
+                </div>
+              </div>
+              <div class="field-row">
+                <label>Binder-Target &Delta;H prior <span class="unit-suffix">kcal/mol</span></label>
+                <div class="ls-axis-range">
+                  <label for="tw-prior-binder-mean">mean</label>
+                  <input id="tw-prior-binder-mean" type="number" step="any" placeholder="-10">
+                  <label for="tw-prior-binder-sd">sd</label>
+                  <input id="tw-prior-binder-sd" type="number" step="any" min="0" placeholder="4">
+                </div>
+              </div>
+              <div class="field-row">
+                <label>Key-Cage &Delta;H prior <span class="unit-suffix">kcal/mol</span></label>
+                <div class="ls-axis-range">
+                  <label for="tw-prior-key-mean">mean</label>
+                  <input id="tw-prior-key-mean" type="number" step="any" placeholder="-8">
+                  <label for="tw-prior-key-sd">sd</label>
+                  <input id="tw-prior-key-sd" type="number" step="any" min="0" placeholder="3">
+                </div>
+              </div>
+
+              <label class="help-text" style="display:flex; align-items:center; gap:6px; margin-top:12px;">
+                <input type="checkbox" id="tw-use-luciferase">
+                Multiply in a luciferase temperature-activity curve
+              </label>
+              <div class="field-row" id="tw-luciferase-row" style="display:none;">
+                <label for="tw-luciferase">Your measured activity points<span class="help-tip" tabindex="0">?<span class="help-tip-body">One "temperature, relative activity" pair per line, for example "25, 1.0". No default curve is assumed, because enzyme activity is yours to measure.</span></span></label>
+                <textarea id="tw-luciferase" rows="4" placeholder="4, 0.6&#10;25, 1.0&#10;37, 0.8&#10;45, 0.3"></textarea>
+              </div>
+
+              <div class="field-row" style="margin-top:12px;">
+                <label for="tw-n-samples">Monte Carlo samples<span class="help-tip" tabindex="0">?<span class="help-tip-body">More samples means a smoother band and a slower answer. Between 200 and 20000.</span></span></label>
+                <input id="tw-n-samples" type="number" value="2000" min="200" max="20000" step="1">
+              </div>
+              <div class="field-row">
+                <label for="tw-seed">Random seed<span class="help-tip" tabindex="0">?<span class="help-tip-body">Leave blank and one is generated and reported, so any run can be reproduced exactly.</span></span></label>
+                <input id="tw-seed" type="number" step="1" placeholder="generated for you">
+              </div>
+              <div class="field-row">
+                <label for="tw-t-ref">Reference temperature <span class="unit-suffix">&deg;C</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">The temperature your &Delta;G values were measured at. Everything is extrapolated from here, so a window far from it is a guess.</span></span></label>
+                <input id="tw-t-ref" type="number" step="any" value="25">
+              </div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" id="tw-results" style="display:none;">
+          <div id="tw-legend" class="tw-legend"></div>
+
+          <h2 class="font-display" style="font-size:16px; margin-bottom:2px;">Chance the design works</h2>
+          <svg id="tw-plot-pworks" class="plot-svg"></svg>
+          <p class="plot-caption">Shaded bands are each construct's working window. The dashed horizontal line is the confidence you asked for; dotted vertical lines mark a stability cap.</p>
+
+          <h2 class="font-display" style="font-size:16px; margin:18px 0 2px;">Brightness jump</h2>
+          <svg id="tw-plot-fc" class="plot-svg"></svg>
+          <p class="plot-caption">Solid line is the median across simulated runs; the shaded band is the 10th to 90th percentile. The dot marks the best temperature.</p>
+
+          <div id="tw-no-window" class="empty-state" style="display:none;"></div>
+          <div id="tw-table"></div>
+
+          <div class="field-row" style="display:flex; align-items:center; gap:8px; margin-top:12px;">
+            <span class="badge badge-muted" id="tw-seed-readout"></span>
+          </div>
+
+          <div id="tw-notes" class="help-text"></div>
+        </div>
+      </div>
+    </div>
+  </section>
 
 
 </main>
@@ -943,5 +1083,6 @@
 <script src="static/js/scanner.js"></script>
 <script src="static/js/dosing.js"></script>
 <script src="static/js/landscape.js"></script>
+<script src="static/js/temperature_window.js"></script>
 </body>
 </html>

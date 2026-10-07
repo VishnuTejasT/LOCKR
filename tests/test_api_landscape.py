@@ -356,3 +356,87 @@ def test_module_c_solutions_map_onto_landscape_axes():
                 _SLICE)
     assert curve["values"][0] == pytest.approx(solution["fold_change"], rel=1e-6)
     assert curve["values"][0] == pytest.approx(target, rel=0.05)
+
+
+# --- temperature Monte Carlo -----------------------------------------------
+
+
+_SCAN = "/api/temperature_scan"
+
+
+def _scan_body(**over):
+    body = {"fixed": dict(_FIXED), "thermo": _THERMO, "draws": 120, "seed": 0}
+    body.update(over)
+    return body
+
+
+def test_temperature_scan_returns_a_band_and_checkpoints():
+    data = _ok(_scan_body(threshold=8.0, op=">="), _SCAN)
+    assert data["draws"] == 120
+    assert len(data["temperatures"]) == len(data["median"]) == len(data["p05"])
+    for lo, mid, hi in zip(data["p05"], data["median"], data["p95"]):
+        assert lo <= mid <= hi
+    labels = [c["label"] for c in data["checkpoints"]]
+    assert labels == ["fridge, 4 C", "bench, 25 C", "body, 37 C"]
+    assert all(0.0 <= c["probability"] <= 1.0 for c in data["checkpoints"])
+
+
+def test_temperature_scan_is_deterministic_for_a_seed():
+    assert _ok(_scan_body(seed=11), _SCAN)["median"] == _ok(_scan_body(seed=11), _SCAN)["median"]
+
+
+def test_temperature_scan_refuses_isothermal_inputs():
+    response = _post(_scan_body(thermo={}), _SCAN)
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "ISOTHERMAL_NO_TEMPERATURE_AXIS"
+    assert "temperatures" not in response.json()
+
+
+def test_temperature_scan_always_flags_its_assumptions():
+    data = _ok(_scan_body(), _SCAN)
+    assert data["assumptions"]
+    assert any("not measurements" in w for w in data["warnings"])
+
+
+def test_temperature_scan_reports_lod_in_nm_both_ways():
+    """The threshold goes in as nM and the medians come back as nM, or the probability is
+    computed against a number a billion times too big."""
+    data = _ok(_scan_body(fixed=dict(_FIXED, k_target=1.0), metric="limit_of_detection",
+                          threshold=1.0, op="<="), _SCAN)
+    assert data["units"]["limit_of_detection"] == "nM"
+    assert all(1e-4 < c["median"] < 1e4 for c in data["checkpoints"])
+    assert data["threshold"] == 1.0
+
+
+def test_temperature_scan_tm_band_reported():
+    data = _ok(_scan_body(min=320.0, max=332.0), _SCAN)
+    assert data["tm_band"]["Tm"] == pytest.approx(335.0)
+
+
+def test_temperature_scan_validation():
+    for payload, fragment in [
+            (_scan_body(draws=99999), "draws must be between"),
+            (_scan_body(min=320.0, max=300.0), "min must be < max"),
+            (_scan_body(fixed={"k_ck": 10.0}), "fixed is missing"),
+            (_scan_body(op="~="), "op must be one of"),
+            (_scan_body(metric="limit_of_detection"), "k_target"),
+            (_scan_body(spreads={"dH_latch": -1.0}), "must be >= 0")]:
+        response = _post(payload, _SCAN)
+        assert response.status_code == 400, payload
+        assert fragment in response.json()["error"]["message"], payload
+
+
+def test_isothermal_target_binder_warns_instead_of_refusing():
+    """An unscaled target Kd costs fidelity, not meaning: cage and key still move with heat."""
+    data = _ok(_scan_body(fixed=dict(_FIXED, k_target=1.0)), _SCAN)
+    assert any("held fixed" in w for w in data["warnings"])
+
+
+def test_landscape_temperature_axis_allows_an_isothermal_target_binder():
+    data = _ok(_body(x_axis={"param": "temperature_K", "min": 277.15, "max": 320.0,
+                             "steps": 20, "scale": "linear"},
+                     y_axis={"param": "k_open", "min": 1e-5, "max": 1e-1, "steps": 10,
+                             "scale": "log"},
+                     fixed=dict(_FIXED, k_target=1.0), thermo=_THERMO))
+    assert any("held fixed" in w for w in data["warnings"])
+    assert len(data["z"]) == 20

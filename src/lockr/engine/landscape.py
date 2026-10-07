@@ -22,6 +22,9 @@ METRICS = ("fold_change", "on_signal", "off_signal", "dynamic_range",
 # Metrics needing a target binder: without a Kd there is no dose response to read an LOD off.
 NEEDS_TARGET = ("limit_of_detection",)
 
+# Metrics where a smaller number is the better design.
+LOWER_IS_BETTER = ("off_signal", "limit_of_detection")
+
 SCALES = ("linear", "log")
 
 # memory guard, not a time guard

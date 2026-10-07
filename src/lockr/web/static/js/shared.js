@@ -22,7 +22,7 @@ function initTabs() {
   const initial = location.hash.replace("#", "") || "scanner";
   // Dosing lives inside the calculator tab now; old #dosing links still land somewhere sensible.
   const wanted = initial === "dosing" ? "calculator" : initial;
-  showTab(["scanner", "calculator", "landscape"].includes(wanted) ? wanted : "scanner");
+  showTab(["scanner", "calculator", "landscape", "temperature"].includes(wanted) ? wanted : "scanner");
 }
 
 let toastTimer = null;
