@@ -103,11 +103,23 @@ lockr graft SEQUENCE --json
 lockr graft --status                             # check whether PyRosetta and the template are even available
 ```
 
+Find the temperature band where a construct works (Monte Carlo over the unmeasured heat terms):
+
+```bash
+lockr window --preset                            # ECLIPSE example, placeholder numbers, not measured data
+lockr window --dg-latch -2.7 --dg-key -10.9 --dg-binder -10 --target-conc 5
+lockr window --dg-latch -2.7 --dg-key -10.9 --kd-nm 50 --t-min 15 --t-max 42
+lockr window --preset --seed 1 --json            # repeatable, machine-readable
+```
+
+Give the binder affinity as `--dg-binder` (kcal/mol) or `--kd-nm` (nM), not both. Concentrations are in nM. Without `--target-conc` the target is treated as saturating and the binder affinity does not affect the result.
+
 ### More help
 
 ```bash
 lockr scan --help
 lockr fc --help
+lockr window --help
 lockr serve --help
 lockr graft --help
 ```
@@ -152,9 +164,8 @@ Expand **Reporter-key dosing** below the calculator. Enter K_CK, total cage conc
 
 **Reporter Key Dosing** can be expanded as a section in the Clauclator tab and you enter specific parameters like K_CK, Cage cocnentration, key stock concentration, and assay volume. These values, alongside a desired fold-change, will work together to calculate for a key concentration with a stock volume to add, while also plotting it in a titration curve.
 
-## Design Map
+## Temperature Window
 
-Presets cover cage tightness versus pull, key concentration and affinity, temperature response, and minimum detectable target. Set the preset and input the desired values to plot the design map. The design map is utilzied to compare the effects of 2 parameters on fold change like k_open and pull strength.
+The **Temperature Window** tab sweeps temperature for a construct (latch-cage and key-cage stability plus a binder) and reports the best temperature and the band where the fold-change clears your bar often enough to be worth building. Only three fields are shown by default, with a toggle to add the binder-target affinity; sweep range, bar, confidence and sample count sit under Advanced. The CLI equivalent is `lockr window`.
 
-
-The **Mark suggested designs** control runs inverse design for a target fold-change and overlays combinations that meet it when the map axes are cage looseness and key concentration. The API also exposes inverse solving for other supported parameter combinations.
+The band comes from a Monte Carlo over the numbers nobody has measured yet, mainly the heat terms (dH). It is a spread, not a prediction. The dH priors and the ECLIPSE preset are placeholders, so replace them before quoting a window. dCp is ignored (van't Hoff only), so trust the curve within about 15 K of 25 C.

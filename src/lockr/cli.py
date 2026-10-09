@@ -1,4 +1,4 @@
-"""`lockr serve` / `lockr scan` / `lockr fc`, CLI entry points."""
+"""`lockr serve` / `lockr scan` / `lockr fc` / `lockr window`, CLI entry points."""
 
 from __future__ import annotations
 
@@ -201,6 +201,76 @@ def _print_fc_result(r) -> None:
             print(f"Warning: {w}")
 
 
+def _cmd_window(args) -> None:
+    import copy
+
+    from lockr.api.errors import ApiError
+    from lockr.api.routes.temperature_window import temperature_window
+    from lockr.api.schemas.temperature_window import ECLIPSE_PRESET, TemperatureWindowRequest
+
+    if args.preset:
+        body = copy.deepcopy(ECLIPSE_PRESET)
+        system = body["systems"][0]
+        print("note: --preset uses placeholder ECLIPSE example numbers, not measured data",
+              file=sys.stderr)
+    else:
+        body = {"systems": [{"name": "construct", "binder": {"name": "binder"}}]}
+        system = body["systems"][0]
+    binder = system["binder"]
+
+    if args.dg_latch is not None:
+        system["dG_latch_cage"] = args.dg_latch
+    if args.dg_key is not None:
+        system["dG_key_cage"] = args.dg_key
+    if args.dg_binder is not None:
+        binder["dG_target_binder"], binder["kd_nM"] = args.dg_binder, None
+    if args.kd_nm is not None:
+        binder["kd_nM"], binder["dG_target_binder"] = args.kd_nm, None
+    for flag, key in ((args.key_conc, "key_conc"), (args.target_conc, "target_conc"),
+                      (args.pull, "pull")):
+        if flag is not None:
+            system[key] = flag
+    for flag, key in ((args.t_min, "t_min_c"), (args.t_max, "t_max_c"), (args.t_step, "t_step_c"),
+                      (args.threshold, "fc_threshold"), (args.confidence, "confidence"),
+                      (args.samples, "n_samples")):
+        if flag is not None:
+            body[key] = flag
+    body["seed"] = args.seed
+
+    try:
+        response = temperature_window(TemperatureWindowRequest(**body))
+    except ApiError as e:
+        _err(e.message)
+
+    if args.json:
+        print(json.dumps(response.model_dump(), indent=2))
+    else:
+        _print_window_result(response)
+
+
+def _print_window_result(r) -> None:
+    echo = r.echo
+    print(f"Sweep:      {echo.t_min_c:g} to {echo.t_max_c:g} C, bar = {echo.fc_threshold:g}x "
+          f"at {echo.confidence:.0%} confidence ({echo.n_samples} samples, seed {r.seed})")
+    for s in r.systems:
+        print()
+        print(f"{s.name} + {s.binder_name}")
+        if s.window is None:
+            print(f"Window:     none. {s.reason or ''}".rstrip())
+        else:
+            print(f"Window:     {s.window.t_low_c:g} to {s.window.t_high_c:g} C")
+            if s.window_touches_grid_edge:
+                print("            (touches the edge of the sweep, widen --t-min/--t-max)")
+        if s.t_opt_c is not None:
+            print(f"Best temp:  {s.t_opt_c:g} C  (median fold-change {s.peak_median_fc:.2f}x)")
+        if s.stability_cap_c is not None:
+            print(f"Stability:  capped at {s.stability_cap_c:g} C ({s.stability_cap_source})")
+    if r.notes:
+        print()
+        for n in r.notes:
+            print(f"Note: {n}")
+
+
 _LATCH_START = 325
 _LATCH_END = 359
 
@@ -382,6 +452,32 @@ def main() -> None:
                          "with --k-target, or omitted entirely to assume saturating target")
     fc.add_argument("--json", action="store_true", help="output raw JSON instead of a plain-text summary")
 
+    window = subparsers.add_parser("window", help="find the temperature band where a construct works")
+    window.add_argument("--preset", action="store_true",
+                        help="start from the ECLIPSE example (placeholder numbers, not measured data); "
+                             "other flags override it")
+    window.add_argument("--dg-latch", type=float, dest="dg_latch", metavar="FLOAT",
+                        help="latch-cage stability at 25 C, kcal/mol")
+    window.add_argument("--dg-key", type=float, dest="dg_key", metavar="FLOAT",
+                        help="key-cage binding free energy at 25 C, kcal/mol")
+    window.add_argument("--dg-binder", type=float, dest="dg_binder", metavar="FLOAT",
+                        help="binder-target free energy, kcal/mol (give this or --kd-nm)")
+    window.add_argument("--kd-nm", type=float, dest="kd_nm", metavar="FLOAT",
+                        help="binder-target Kd in nM (give this or --dg-binder)")
+    window.add_argument("--key-conc", type=float, dest="key_conc", metavar="FLOAT",
+                        help="lucKey concentration in nM (default: engine default)")
+    window.add_argument("--target-conc", type=float, dest="target_conc", metavar="FLOAT",
+                        help="target concentration in nM (default: engine default)")
+    window.add_argument("--pull", type=float, help="allosteric pull, dimensionless (default: engine default)")
+    window.add_argument("--t-min", type=float, dest="t_min", help="sweep start, C (default: 4)")
+    window.add_argument("--t-max", type=float, dest="t_max", help="sweep end, C (default: 45)")
+    window.add_argument("--t-step", type=float, dest="t_step", help="sweep step, C (default: 1)")
+    window.add_argument("--threshold", type=float, help="fold-change a temperature must clear (default: engine default)")
+    window.add_argument("--confidence", type=float, help="fraction of samples that must clear it, 0-1")
+    window.add_argument("--samples", type=int, help="Monte Carlo samples")
+    window.add_argument("--seed", type=int, default=None, help="random seed for a repeatable run")
+    window.add_argument("--json", action="store_true", help="output raw JSON instead of a plain-text summary")
+
     graft = subparsers.add_parser("graft", help="thread a binder into the lucCage latch (needs PyRosetta)")
     graft.add_argument("sequence", nargs="?",
                        help="binder amino-acid sequence to graft, standard residues only, max 35aa. "
@@ -409,6 +505,8 @@ def main() -> None:
         _cmd_scan(args)
     elif args.command == "fc":
         _cmd_fc(args)
+    elif args.command == "window":
+        _cmd_window(args)
     elif args.command == "graft":
         _cmd_graft(args)
 

@@ -177,3 +177,31 @@ def test_serve_help_runs_clean():
     r = _run("serve", "--help")
     assert r.returncode == 0
     assert "--port" in r.stdout
+
+
+# ── lockr window ──────────────────────────────────────────────────────────────
+
+def test_window_preset_runs_and_is_repeatable():
+    a = _run("window", "--preset", "--seed", "1", "--json")
+    b = _run("window", "--preset", "--seed", "1", "--json")
+    assert a.returncode == 0 and a.stdout == b.stdout
+    assert "placeholder" in a.stderr
+    assert json.loads(a.stdout)["systems"][0]["binder_name"]
+
+
+def test_window_plain_text_summary():
+    r = _run("window", "--preset", "--seed", "1")
+    assert r.returncode == 0
+    assert "Window:" in r.stdout and "Sweep:" in r.stdout
+
+
+def test_window_requires_an_affinity():
+    r = _run("window", "--dg-latch", "-4", "--dg-key", "-11")
+    assert r.returncode == 1
+    assert "affinity" in r.stderr
+
+
+def test_window_help_runs_clean():
+    r = _run("window", "--help")
+    assert r.returncode == 0
+    assert "--kd-nm" in r.stdout
