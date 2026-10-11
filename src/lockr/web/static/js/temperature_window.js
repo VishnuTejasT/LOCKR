@@ -457,16 +457,6 @@ function twRenderBarSummary() {
     `${twFmt(to)} °C</b>. <button type="button" data-tw-open-advanced>Change</button>`;
 }
 
-// With no target amount the engine says the binder did not matter. True, but confusing when
-// the binder fields were never on screen, so say what it means for the run they actually did.
-function twNote(note) {
-  if (!twBinderModeOn() && note.includes("does NOT affect this result")) {
-    return "Binder strength is not part of this run: you are comparing cages on their own. "
-      + "Tick \u201cInclude a specific binder and target amount\u201d on a construct to bring it in.";
-  }
-  return note;
-}
-
 function twRender() {
   const data = twState.data;
   twEl("tw-results").style.display = "block";
@@ -478,9 +468,6 @@ function twRender() {
 
   twEl("tw-seed").value = data.seed;
   twEl("tw-seed-readout").textContent = `Seed ${data.seed}`;
-  // notes are a standing condition of the answer, so they are never collapsed away
-  twEl("tw-notes").innerHTML = `<h3 class="font-display" style="font-size:15px;">What this answer assumes</h3>
-    <ul>${[...new Set(data.notes.map(twNote))].map((n) => `<li>${twEscape(n)}</li>`).join("")}</ul>`;
 }
 
 // --- from the Calculator ---------------------------------------------------------------

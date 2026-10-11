@@ -27,7 +27,6 @@
       <div class="screen-header">
         <h1>Charge &amp; Liability Scanner</h1>
         <p>Check whether a binder sequence will weaken the cage-key grip, then graft it into lucCage. Scan first, then send its K_CK to the Calculator.</p>
-        <p class="help-text">Paste a full lucCage sequence and the built-in luciferase piece and total length are checked in the background. You only see a note if something looks off.</p>
       </div>
       <div class="hero-stage" id="hero-stage" aria-hidden="true"></div>
     </div>
@@ -343,10 +342,16 @@
   </section>
 
   <section class="tab-panel" data-tab="calculator">
+    <div class="path-picker">
+      <div class="segmented" id="calc-path-seg" role="tablist" aria-label="Choose a tool">
+        <button type="button" role="tab" data-path="calc" class="active">Calculating fold-change</button>
+        <button type="button" role="tab" data-path="dose">Dosing</button>
+      </div>
+    </div>
+    <div id="path-calc">
     <div class="screen-header">
-      <h1>Brightness Calculator</h1>
-      <p><b>What does this answer?</b> You have a sensor that glows when it finds the thing you are looking for. This works out <b>how much brighter it gets</b> when that thing shows up, and which part of the design is holding it back. Type in four numbers, press Calculate.</p>
-      <p>A jump of 1&times; means nothing happened. 10&times; is easy to see on a plate reader. If you don't know the key affinity yet, the Scanner tab can guess it from a sequence.</p>
+      <h1>Fold-Change Calculator</h1>
+      <p>The Fold-Change Calculator works out how much brighter the LOCKR system gets in the presence of the target and determines the parts of the design that are holding it back.</p>
     </div>
 
     <div class="two-col">
@@ -654,15 +659,19 @@
       </div>
     </div>
 
-    <details class="card" id="dose-section" style="margin-top:24px;">
-      <summary style="cursor:pointer; font-family:var(--font-display); font-size:20px; font-weight:600;">At the bench: how many microlitres of key do I pipette?</summary>
-      <p class="help-text" style="margin-top:12px;">Everything above is the design on paper. This part is for the day you are standing at the bench: it tells you <b>how much key solution to pipette into the tube</b> so that the fraction of cages you want end up holding a key. It does the careful version of the maths, because in a real tube there often is not much more key than cage.</p>
+    </div>
+
+    <div id="path-dose" style="display:none;">
+    <div class="screen-header">
+      <h1>Dosing</h1>
+      <p><b>How much key is needed to reach my targeted fold-change?</b> This tells you how much lucKey to add to the LOCKR solution to reach a targeted fold-change or luminescence.</p>
+    </div>
       <div class="two-col">
         <div>
           <div class="card">
             <form id="dose-form">
               <div class="field-row">
-                <label for="dose-kck">Key affinity <span class="unit-suffix">nM &middot; K_CK</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">Copied from the key affinity you typed at the top of this tab. Type a different number here to use it for the pipetting maths only.</span></span></label>
+                <label for="dose-kck">Key affinity <span class="unit-suffix">nM &middot; K_CK</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">Copied from the key affinity you typed in the Fold-Change Calculator. Type a different number here to use it for the pipetting maths only.</span></span></label>
                 <input id="dose-kck" data-dose-field="k_ck" type="number" step="any" value="10" min="0" placeholder="e.g. 10">
                 <div class="field-error" data-dose-error="k_ck"></div>
               </div>
@@ -752,15 +761,14 @@
           </div>
         </div>
       </div>
-    </details>
+    </div>
   </section>
 
 
   <section class="tab-panel" data-tab="temperature">
     <div class="screen-header">
       <h1>Temperature Window</h1>
-      <p>Pick a construct and this sweeps the thermometer: which temperature gives the biggest brightness jump, and over what band of temperatures the design still clears your bar often enough to be worth building. Load two binders on the same cage to see which one travels better.</p>
-      <p class="help-text">The band comes from a Monte Carlo over the numbers nobody has measured yet, mainly the heat terms. It is an honest spread, not a prediction. Read the assumptions under the plot before you trust a window.</p>
+      <p>This module sweeps over a range to give you the temperature needed for the LOCKR design to get the biggest jump in fold-change. It tells you the band of temperatures where the design still clears the constraint bar.</p>
     </div>
 
     <div class="two-col">
@@ -879,7 +887,6 @@
             <span class="badge badge-muted" id="tw-seed-readout"></span>
           </div>
 
-          <div id="tw-notes" class="help-text"></div>
         </div>
       </div>
     </div>

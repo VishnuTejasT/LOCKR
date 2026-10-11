@@ -188,7 +188,14 @@ function doseReset() {
 }
 
 function initDosing() {
-  document.querySelectorAll('#dose-section [data-dose-field]').forEach((input) => {
+  document.querySelectorAll("#calc-path-seg button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#calc-path-seg button").forEach((b) => b.classList.toggle("active", b === btn));
+      doseEl("path-calc").style.display = btn.dataset.path === "calc" ? "block" : "none";
+      doseEl("path-dose").style.display = btn.dataset.path === "dose" ? "block" : "none";
+    });
+  });
+  document.querySelectorAll('#path-dose [data-dose-field]').forEach((input) => {
     input.addEventListener("input", doseUpdateValidity);
   });
   document.querySelectorAll("#dose-target-mode-seg button").forEach((btn) => {

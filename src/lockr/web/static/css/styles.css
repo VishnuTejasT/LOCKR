@@ -758,3 +758,7 @@ textarea#scan-sequence { font-size: 15px; letter-spacing: 1px; }
 .tw-table-scroll .batch-table th { font-size: 11px; letter-spacing: .03em; }
 .tw-construct.card { background: transparent; border: 1px solid var(--border); padding: 20px; }
 details.advanced .card input, details.advanced .card textarea, details.advanced .card select { background: var(--surface); }
+
+.path-picker { display: flex; justify-content: center; margin-top: 36px; }
+.path-picker .segmented button { height: 38px; padding: 0 22px; }
+#path-dose .screen-header, #path-calc .screen-header { margin-top: 40px; }
