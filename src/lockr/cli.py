@@ -202,20 +202,12 @@ def _print_fc_result(r) -> None:
 
 
 def _cmd_window(args) -> None:
-    import copy
-
     from lockr.api.errors import ApiError
     from lockr.api.routes.temperature_window import temperature_window
-    from lockr.api.schemas.temperature_window import ECLIPSE_PRESET, TemperatureWindowRequest
+    from lockr.api.schemas.temperature_window import TemperatureWindowRequest
 
-    if args.preset:
-        body = copy.deepcopy(ECLIPSE_PRESET)
-        system = body["systems"][0]
-        print("note: --preset uses placeholder ECLIPSE example numbers, not measured data",
-              file=sys.stderr)
-    else:
-        body = {"systems": [{"name": "construct", "binder": {"name": "binder"}}]}
-        system = body["systems"][0]
+    system = {"name": "construct", "binder": {"name": "binder"}}
+    body = {"systems": [system]}
     binder = system["binder"]
 
     if args.dg_latch is not None:
@@ -453,9 +445,6 @@ def main() -> None:
     fc.add_argument("--json", action="store_true", help="output raw JSON instead of a plain-text summary")
 
     window = subparsers.add_parser("window", help="find the temperature band where a construct works")
-    window.add_argument("--preset", action="store_true",
-                        help="start from the ECLIPSE example (placeholder numbers, not measured data); "
-                             "other flags override it")
     window.add_argument("--dg-latch", type=float, dest="dg_latch", metavar="FLOAT",
                         help="latch-cage stability at 25 C, kcal/mol")
     window.add_argument("--dg-key", type=float, dest="dg_key", metavar="FLOAT",

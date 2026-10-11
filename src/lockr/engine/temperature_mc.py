@@ -37,7 +37,7 @@ _SIGMA_LABELS = {
     "dH_key": "key-cage heat response (dH), +-{v:g} kcal/mol",
     "dCp_latch": "cage dCp, +-{v:g} kcal/mol/K",
     "k_open_log10": "cage looseness, +-{v:g} decades",
-    "k_ck_log10": "key grip strength, +-{v:g} decades",
+    "k_ck_log10": "key affinity, +-{v:g} decades",
     "pull_rel": "target pull strength, +-{pct:g}%",
 }
 

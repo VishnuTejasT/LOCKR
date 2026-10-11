@@ -1,7 +1,6 @@
 """Temperature operating window: the fold-change convention, window logic, caps and refusals.
 
-Every number in here is deliberately synthetic and round. The shipped ECLIPSE preset is
-placeholder data and is only touched by the one test that checks the preset still runs.
+Every number in here is deliberately synthetic and round.
 """
 
 import copy
@@ -14,7 +13,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from lockr.api.main import app
-from lockr.api.schemas.temperature_window import ECLIPSE_PRESET
 from lockr.engine import temperature_window as tw
 from lockr.engine import thermo
 from lockr.engine.models import SensorParams
@@ -431,30 +429,6 @@ def test_lowercase_sequence_is_accepted():
     """Case-insensitive: the sequence is provenance, not a prediction input."""
     data = _post(_request(binder_over={"sequence": "lisdaeleaifaeeldc"}))
     assert data["systems"][0]["median_fc"]
-
-
-# --- 12. the shipped preset still runs -------------------------------------------------
-
-def test_eclipse_preset_runs_and_is_flagged_as_placeholder():
-    served = client.get("/api/temperature/window/preset")
-    assert served.status_code == 200
-    preset = served.json()
-    assert preset["placeholder"] is True
-    assert preset["placeholder_fields"]
-    assert "replace with real data" in preset["badge"]
-
-    data = _post(preset["request"])
-    assert len(data["systems"]) == 1
-    assert data["systems"][0]["median_fc"]
-    assert any("PLACEHOLDER" in note for note in data["notes"]), data["notes"]
-
-
-def test_preset_is_served_not_duplicated_in_the_frontend():
-    """The browser must fetch the preset, so its placeholder numbers live in one place."""
-    source = (WEB_JS / "temperature_window.js").read_text()
-    assert "/api/temperature/window/preset" in source
-    assert "LISDAELEAIFAEELDC" not in source, "preset sequence duplicated into JS"
-    assert str(ECLIPSE_PRESET["systems"][0]["dG_latch_cage"]) not in source
 
 
 # --- 13. the new view's JS at least parses ---------------------------------------------

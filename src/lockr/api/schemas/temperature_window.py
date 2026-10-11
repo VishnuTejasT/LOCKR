@@ -33,51 +33,6 @@ def _reject(message: str, field: str, code: str = "VALIDATION_ERROR") -> None:
     raise ApiError(code, message, field, status_code=422)
 
 
-# EVERY NUMBER BELOW IS A PLACEHOLDER. This is an example request shape, not a result,
-# and nothing here is measured ECLIPSE data. Defined once here and served to the UI by
-# GET /api/temperature/window/preset so the browser cannot drift from the test fixture.
-ECLIPSE_PRESET = {
-    "systems": [{
-        "name": "ECLIPSE cage 1",
-        # TODO(placeholder): illustrative latch-cage stability, not measured.
-        "dG_latch_cage": -2.7,
-        "dH_latch_cage": None,
-        # TODO(placeholder): -10.9 kcal/mol is R*T*ln(K_CK) at K_CK = 1e-8, the lucCage
-        # scaffold default in models.K_CK_DEFAULT. Replace with your own Key-Cage number.
-        "dG_key_cage": -10.9,
-        "dH_key_cage": None,
-        "key_conc": None,
-        "target_conc": None,
-        "t_max_stability_c": None,
-        "binder": {
-            "name": "ECLIPSE binder 1",
-            # provenance/display only; never used to predict affinity
-            "sequence": "LISDAELEAIFAEELDC",
-            # TODO(placeholder): replace with the HybridDock-Pep output for this binder.
-            "dG_target_binder": -10.0,
-            "kd_nM": None,
-            # docking-derived affinities are noisy; narrow this only for an ITC measurement
-            "dG_target_binder_sd": 1.5,
-            "dH_target_binder": None,
-            "tm_c": None,
-            "graft_dG_latch_cage_shift": 0.0,
-        },
-    }],
-    "t_min_c": 4.0,
-    "t_max_c": 45.0,
-    "t_step_c": 1.0,
-    "t_ref_c": 25.0,
-    "fc_threshold": DEFAULT_FC_THRESHOLD,
-    "confidence": DEFAULT_CONFIDENCE,
-    "n_samples": DEFAULT_N_SAMPLES,
-}
-
-ECLIPSE_PRESET_PLACEHOLDER_FIELDS = (
-    "systems[0].dG_latch_cage", "systems[0].dG_key_cage",
-    "systems[0].binder.dG_target_binder", "systems[0].binder.dG_target_binder_sd",
-)
-
-
 class DhPriorIn(BaseModel):
     mean: float | None = None
     sd: float | None = None

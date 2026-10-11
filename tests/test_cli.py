@@ -181,16 +181,19 @@ def test_serve_help_runs_clean():
 
 # ── lockr window ──────────────────────────────────────────────────────────────
 
-def test_window_preset_runs_and_is_repeatable():
-    a = _run("window", "--preset", "--seed", "1", "--json")
-    b = _run("window", "--preset", "--seed", "1", "--json")
+_WINDOW = ("window", "--dg-latch", "-2.7", "--dg-key", "-10.9", "--kd-nm", "50",
+           "--target-conc", "10", "--seed", "1")
+
+
+def test_window_runs_and_is_repeatable():
+    a = _run(*_WINDOW, "--json")
+    b = _run(*_WINDOW, "--json")
     assert a.returncode == 0 and a.stdout == b.stdout
-    assert "placeholder" in a.stderr
-    assert json.loads(a.stdout)["systems"][0]["binder_name"]
+    assert json.loads(a.stdout)["systems"][0]["median_fc"]
 
 
 def test_window_plain_text_summary():
-    r = _run("window", "--preset", "--seed", "1")
+    r = _run(*_WINDOW)
     assert r.returncode == 0
     assert "Window:" in r.stdout and "Sweep:" in r.stdout
 

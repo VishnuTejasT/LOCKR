@@ -33,12 +33,13 @@ from . import thermo
 from .models import SensorParams
 from .temperature import R_KCAL, T_REF_DEFAULT
 
-# TODO(literature): PLACEHOLDER dH priors, kcal/mol. These are NOT measured values.
-# The means echo the illustrative dH_ref values already used in LATTE's Module C
-# examples (-12 latch, -8 key) with deliberately wide spreads; binder-target is a
-# guess. Every window this module reports inherits these numbers, so replace all
-# three with calorimetry or van't Hoff fits for your own construct before quoting a
-# window. This is the ONE place they are defined.
+# ASSUMED dH priors, kcal/mol. No published dH exists for lucCage or LOCKR switches (the
+# 2021 Nature paper and its SARS-CoV-2 follow-up report none), so these are NOT measured and
+# NOT fitted. They are negative (binding releases heat) and sit well inside the range of
+# 196 protein-protein complexes measured by ITC, dH from -66.7 to +19.9 kcal/mol at 298 K
+# (Teilum, Olsen & Kragelund 2015, https://pmc.ncbi.nlm.nih.gov/articles/PMC4496568/). That
+# paper reports no mean or SD for dH, so the spreads here are a judgement call. Replace with
+# calorimetry or van't Hoff fits for your own construct. This is the ONE place they are defined.
 DEFAULT_DH_PRIORS = {
     "latch_cage": {"mean": -12.0, "sd": 4.0},
     "binder_target": {"mean": -10.0, "sd": 4.0},
@@ -48,8 +49,10 @@ DEFAULT_DH_PRIORS = {
 PRIOR_KEYS = tuple(DEFAULT_DH_PRIORS)
 
 DH_PRIOR_PLACEHOLDER_NOTE = (
-    "The dH priors used here are PLACEHOLDER values, not literature or calorimetry. "
-    "Every temperature in this report depends on them. Replace them before quoting a window."
+    "The dH priors are ASSUMED, not measured: no dH has been published for lucCage. They are "
+    "negative and inside the -67 to +20 kcal/mol range seen across 196 protein-protein "
+    "complexes (Teilum 2015), but that survey gives no mean or spread to fit. Every "
+    "temperature in this report depends on them. Enter your own dH to replace them."
 )
 
 # Docking-derived affinities are noisy, so the binder dG is sampled rather than trusted.
@@ -345,7 +348,7 @@ def _notes(results: list[dict], dH_priors: dict | None,
         supplied = sorted(k for k, v in dH_priors.items() if v is not None)
         missing = [k for k in PRIOR_KEYS if k not in supplied]
         if missing:
-            notes.append(f"{DH_PRIOR_PLACEHOLDER_NOTE} Still on placeholder values: "
+            notes.append(f"{DH_PRIOR_PLACEHOLDER_NOTE} Still assumed: "
                          f"{', '.join(missing)}.")
     for r in results:
         notes.append(f"{r['name']} / {r['binder_name']}: Binder-Target dG uncertainty sampled "

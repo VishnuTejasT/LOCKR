@@ -13,24 +13,11 @@ from lockr.engine import temperature_window as tw
 from lockr.engine.temperature_window import c_to_k
 
 from ..errors import ApiError
-from ..schemas.temperature_window import (ECLIPSE_PRESET, ECLIPSE_PRESET_PLACEHOLDER_FIELDS,
-                                          NM_TO_M, UNITS, EchoOut, SystemWindowOut,
+from ..schemas.temperature_window import (NM_TO_M, UNITS, EchoOut, SystemWindowOut,
                                           TemperatureWindowRequest,
                                           TemperatureWindowResponse, validate_request)
 
 router = APIRouter(prefix="/api")
-
-
-@router.get("/temperature/window/preset")
-def temperature_window_preset() -> dict:
-    """The ECLIPSE example request. Placeholder numbers, served so the UI holds no copy."""
-    return {
-        "name": "ECLIPSE example",
-        "request": ECLIPSE_PRESET,
-        "placeholder": True,
-        "placeholder_fields": list(ECLIPSE_PRESET_PLACEHOLDER_FIELDS),
-        "badge": "Example values, replace with real data",
-    }
 
 
 def _to_engine(system, t_ref_c: float) -> dict:

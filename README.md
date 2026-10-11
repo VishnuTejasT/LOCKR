@@ -106,10 +106,9 @@ lockr graft --status                             # check whether PyRosetta and t
 Find the temperature band where a construct works (Monte Carlo over the unmeasured heat terms):
 
 ```bash
-lockr window --preset                            # ECLIPSE example, placeholder numbers, not measured data
 lockr window --dg-latch -2.7 --dg-key -10.9 --dg-binder -10 --target-conc 5
 lockr window --dg-latch -2.7 --dg-key -10.9 --kd-nm 50 --t-min 15 --t-max 42
-lockr window --preset --seed 1 --json            # repeatable, machine-readable
+lockr window --dg-latch -2.7 --dg-key -10.9 --kd-nm 50 --target-conc 10 --seed 1 --json  # repeatable
 ```
 
 Give the binder affinity as `--dg-binder` (kcal/mol) or `--kd-nm` (nM), not both. Concentrations are in nM. Without `--target-conc` the target is treated as saturating and the binder affinity does not affect the result.
@@ -166,6 +165,6 @@ Expand **Reporter-key dosing** below the calculator. Enter K_CK, total cage conc
 
 ## Temperature Window
 
-The **Temperature Window** tab sweeps temperature for a construct (latch-cage and key-cage stability plus a binder) and reports the best temperature and the band where the fold-change clears your bar often enough to be worth building. Only three fields are shown by default, with a toggle to add the binder-target affinity; sweep range, bar, confidence and sample count sit under Advanced. The CLI equivalent is `lockr window`.
+The **Temperature Window** tab sweeps temperature for a construct (latch-cage and key-cage stability plus a binder) and reports the best temperature and the band where the fold-change clears your bar often enough to be worth building. Only three fields are shown by default, with a toggle to add the binder-target affinity; sweep range, bar, confidence and sample count sit under Advanced. The CLI equivalent is `lockr window`. The Calculator has a **Send to Temperature Window** button that converts K_CK, K_open and K_target to free energies (dG = RT ln K at 25 C) and fills the form. dH cannot be derived from a single-temperature K, so it stays on the priors unless you enter it.
 
-The band comes from a Monte Carlo over the numbers nobody has measured yet, mainly the heat terms (dH). It is a spread, not a prediction. The dH priors and the ECLIPSE preset are placeholders, so replace them before quoting a window. dCp is ignored (van't Hoff only), so trust the curve within about 15 K of 25 C.
+The band comes from a Monte Carlo over the numbers nobody has measured yet, mainly the heat terms (dH). It is a spread, not a prediction. No dH has been published for lucCage, so the dH priors are assumptions (negative, and inside the -66.7 to +19.9 kcal/mol range of 196 ITC-measured protein-protein complexes in [Teilum, Olsen & Kragelund 2015](https://pmc.ncbi.nlm.nih.gov/articles/PMC4496568/), which reports no mean or spread), not measurements. Enter your own dH to replace them before quoting a window. dCp is ignored (van't Hoff only), so trust the curve within about 15 K of 25 C.
