@@ -4,28 +4,38 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LOCKR Thermodynamics Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="static/css/styles.css">
 </head>
 <body>
 
 <header class="app-header">
-  <div class="header-grid">
-    <a class="wordmark" href="#">LATTE - LOCKR Affinity and Thermodynamics Tuning Engine</a>
-    <nav class="tabs">
-      <button data-tab="scanner">Scanner</button>
-      <button data-tab="calculator">Calculator &amp; Dosing</button>
-      <button data-tab="temperature">Temperature Window</button>
-    </nav>
-  </div>
+  <a class="wordmark" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><circle cx="19.2" cy="5" r="1.8" fill="#f5a02e" stroke="none"/></svg>LATTE</a>
+  <nav class="tabs">
+    <button data-tab="scanner">Scanner</button>
+    <button data-tab="calculator">Calculator &amp; Dosing</button>
+    <button data-tab="temperature">Temperature Window</button>
+  </nav>
 </header>
 
 <main>
 
   <section class="tab-panel" data-tab="scanner">
-    <div class="screen-header">
-      <h1>Charge &amp; Liability Scanner</h1>
-      <p>Use this section to verify whether a binder sequence is likely to be problematic to K-CK affinity through amino acid charge identification. This is normally step one: scan a sequence here, then send its estimated K_CK to the Calculator tab to see what fold-change you'd actually get.</p>
-      <p class="help-text">If you paste a full lucCage sequence (not just a short binder), this also automatically double-checks in the background that the built-in luciferase piece is intact and your sequence is a complete, known length. You'll only see a note appear here if something looks off; otherwise there's nothing to do.</p>
+    <div class="hero-split">
+      <div class="screen-header">
+        <h1>Charge &amp; Liability Scanner</h1>
+        <p>Check whether a binder sequence will weaken the cage-key grip, then graft it into lucCage. Scan first, then send its K_CK to the Calculator.</p>
+        <p class="help-text">Paste a full lucCage sequence and the built-in luciferase piece and total length are checked in the background. You only see a note if something looks off.</p>
+      </div>
+      <div class="hero-stage" id="hero-stage" aria-hidden="true"></div>
+    </div>
+    <div class="stat-strip">
+      <div><b>359</b><span>residues in lucCage</span></div>
+      <div><b>325&ndash;359</b><span>latch window</span></div>
+      <div><b>10 nM</b><span>default key affinity, K_CK</span></div>
+      <div><b>0.001</b><span>default cage looseness, K_open</span></div>
     </div>
 
     <div class="two-col">
@@ -117,6 +127,25 @@
             </div>
           </form>
         </div>
+
+        <div class="card viewer-card">
+            <div class="viewer-head">
+              <div>
+                <h2>Structure</h2>
+                <div class="viewer-sub" id="viewer-sub">lucCage template. Graft a binder to see it in place.</div>
+              </div>
+              <div class="viewer-controls">
+                <button type="button" id="viewer-spin" aria-pressed="false">Spin</button>
+                <button type="button" id="viewer-reset">Reset view</button>
+              </div>
+            </div>
+            <div class="viewer-stage" id="viewer-stage"><div class="viewer-message" id="viewer-message">Loading structure&hellip;</div></div>
+            <div class="viewer-legend">
+              <span><i style="background:#8e95a6"></i>Cage</span>
+              <span><i style="background:#f5a02e"></i>Latch window (325-359)</span>
+              <span id="viewer-legend-binder" hidden><i style="background:#ef6f5e"></i>Grafted binder</span>
+            </div>
+          </div>
       </div>
 
       <div>
@@ -317,7 +346,7 @@
     <div class="screen-header">
       <h1>Brightness Calculator</h1>
       <p><b>What does this answer?</b> You have a sensor that glows when it finds the thing you are looking for. This works out <b>how much brighter it gets</b> when that thing shows up, and which part of the design is holding it back. Type in four numbers, press Calculate.</p>
-      <p>A jump of 1&times; means nothing happened. 10&times; is easy to see on a plate reader. If you don't know the key grip strength yet, the Scanner tab can guess it from a sequence.</p>
+      <p>A jump of 1&times; means nothing happened. 10&times; is easy to see on a plate reader. If you don't know the key affinity yet, the Scanner tab can guess it from a sequence.</p>
     </div>
 
     <div class="two-col">
@@ -327,7 +356,7 @@
           <select id="calc-preset">
             <option value="">Pick a starting point</option>
             <option value="eclipse">Our team's design: tight cage, plenty of key</option>
-            <option value="tight-key">A key that grips hard, but a weak cage</option>
+            <option value="tight-key">A key that binds hard, but a weak cage</option>
             <option value="leaky">A leaky cage that glows when it should not</option>
             <option value="blank">Clear all fields</option>
           </select>
@@ -338,8 +367,8 @@
           <dl>
             <dt>Brightness jump <span class="gloss-unit">fold-change</span></dt>
             <dd>The whole point of the sensor. How bright it glows <em>with</em> the target divided by how bright it glows <em>without</em> it. 1&times; means nothing happened. 10&times; and up is a sensor you can actually read.</dd>
-            <dt>Key grip strength <span class="gloss-unit">K_CK, nM</span></dt>
-            <dd>How tightly the glowing key holds onto the cage. <b>Lower number means a tighter grip and a brighter signal</b>, which is backwards from what you would expect, so watch out. The Scanner tab can estimate it from a sequence.</dd>
+            <dt>Key affinity <span class="gloss-unit">K_CK, nM</span></dt>
+            <dd>How tightly the glowing key holds onto the cage. <b>Lower number means a tighter binding and a brighter signal</b>, which is backwards from what you would expect, so watch out. The Scanner tab can estimate it from a sequence.</dd>
             <dt>Cage looseness <span class="gloss-unit">K_open</span></dt>
             <dd>How often the cage springs open by itself when nothing is there. 0.001 means it stays shut 99.9% of the time. A cage that is too loose glows when it should not, which ruins the signal.</dd>
             <dt>Target pull strength <span class="gloss-unit">pull</span></dt>
@@ -354,7 +383,7 @@
         <div class="card">
           <form id="calc-form">
             <div class="field-row">
-              <label for="calc-kck">Key grip strength <span class="unit-suffix">nM &middot; K_CK</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">How tightly the reporter key grabs the open cage. <b>Lower = tighter = brighter signal.</b> Typical 1-100 nM. Get it from a binding measurement, or a rough estimate from the <b>Scanner</b> tab. Scanner estimates are calibrated on just two known binders, so treat values far outside 1-100 nM as "this binder probably won't work" rather than a precise number.</span></span> <span id="calc-kck-pill" class="pill-chain" style="display:none;"></span></label>
+              <label for="calc-kck">Key affinity <span class="unit-suffix">nM &middot; K_CK</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">How tightly the reporter key grabs the open cage. <b>Lower = tighter = brighter signal.</b> Typical 1-100 nM. Get it from a binding measurement, or a rough estimate from the <b>Scanner</b> tab. Scanner estimates are calibrated on just two known binders, so treat values far outside 1-100 nM as "this binder probably won't work" rather than a precise number.</span></span> <span id="calc-kck-pill" class="pill-chain" style="display:none;"></span></label>
               <input id="calc-kck" data-calc-field="k_ck" type="number" step="any" value="10" min="0" placeholder="e.g. 10, or send from Scanner">
               <div class="field-error" data-calc-error="k_ck"></div>
             </div>
@@ -489,6 +518,7 @@
             <div class="field-row" style="display:flex; gap:8px; margin-top:24px;">
               <button type="button" id="calc-submit" class="btn-primary">Calculate</button>
               <button type="button" id="calc-reset" class="btn-ghost">Reset</button>
+              <button type="button" id="calc-send-temperature" class="btn-secondary">Send to Temperature Window</button>
             </div>
           </form>
         </div>
@@ -500,7 +530,7 @@
         </div>
 
         <div id="calc-undefined-result" class="card" style="display:none;">
-          These numbers don't give a sensible answer. Check the cage looseness and key grip strength.
+          These numbers don't give a sensible answer. Check the cage looseness and key affinity.
         </div>
 
         <div id="calc-results" style="display:none;">
@@ -521,7 +551,7 @@
               <summary>More numbers</summary>
               <div class="result-metrics">
               <div class="result-metric">
-                <span class="rm-label">Key-to-grip ratio<span class="help-tip" tabindex="0">?<span class="help-tip-body">Key amount divided by key grip strength. It is a clue, not a goal. More key or a tighter grip usually helps, but past a point either one can make things worse. The coloured banner below tells you which one still has room to move.</span></span></span>
+                <span class="rm-label">Key-to-affinity ratio<span class="help-tip" tabindex="0">?<span class="help-tip-body">Key amount divided by key affinity. It is a clue, not a goal. More key or a tighter binding usually helps, but past a point either one can make things worse. The coloured banner below tells you which one still has room to move.</span></span></span>
                 <span class="rm-value" id="calc-metric-ratio">N/A</span>
               </div>
               <div class="result-metric">
@@ -632,7 +662,7 @@
           <div class="card">
             <form id="dose-form">
               <div class="field-row">
-                <label for="dose-kck">Key grip strength <span class="unit-suffix">nM &middot; K_CK</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">Copied from the key grip strength you typed at the top of this tab. Type a different number here to use it for the pipetting maths only.</span></span></label>
+                <label for="dose-kck">Key affinity <span class="unit-suffix">nM &middot; K_CK</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">Copied from the key affinity you typed at the top of this tab. Type a different number here to use it for the pipetting maths only.</span></span></label>
                 <input id="dose-kck" data-dose-field="k_ck" type="number" step="any" value="10" min="0" placeholder="e.g. 10">
                 <div class="field-error" data-dose-error="k_ck"></div>
               </div>
@@ -688,7 +718,7 @@
           </div>
 
           <div id="dose-undefined-result" class="card" style="display:none;">
-            These numbers don't give a sensible answer. Check the key grip strength and the two concentrations.
+            These numbers don't give a sensible answer. Check the key affinity and the two concentrations.
           </div>
 
           <div id="dose-results" style="display:none;">
@@ -736,10 +766,6 @@
     <div class="two-col">
       <div>
         <div class="card">
-          <div class="preset-row" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-            <button type="button" id="tw-load-preset" class="btn-ghost">Load ECLIPSE example</button>
-            <span class="badge badge-uncalibrated" id="tw-placeholder-badge" style="display:none;">Example values, replace with real data</span>
-          </div>
 
           <div id="tw-constructs"></div>
           <button type="button" id="tw-add-construct" class="btn-ghost" style="margin-top:8px;">+ Add another construct</button>
@@ -778,7 +804,7 @@
             </div>
 
               <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
-              <p class="help-text">Leave a heat response (&Delta;H) blank on a construct and it is drawn from the prior below. The shipped priors are PLACEHOLDERS, not literature. Replace them before quoting a window.</p>
+              <p class="help-text">Leave a heat response (&Delta;H) blank on a construct and it is drawn from the prior below. The shipped priors are assumptions: no heat response has been published for lucCage, so they are negative and sit inside the -67 to +20 kcal/mol range seen across 196 measured protein-protein complexes (Teilum 2015). Enter your own to replace them.</p>
 
               <div class="field-row">
                 <label>Latch-Cage &Delta;H prior <span class="unit-suffix">kcal/mol</span></label>
@@ -869,6 +895,8 @@
 <script src="static/js/shared.js"></script>
 <script src="static/js/plot.js"></script>
 <script src="static/js/calculator.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/3Dmol/2.4.2/3Dmol-min.js"></script>
+<script src="static/js/viewer.js"></script>
 <script src="static/js/scanner.js"></script>
 <script src="static/js/dosing.js"></script>
 <script src="static/js/temperature_window.js"></script>

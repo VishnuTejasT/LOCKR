@@ -18,6 +18,13 @@ def test_graft_status_reports_available_when_pyrosetta_installed():
     assert body["template_bundled"] is True
 
 
+def test_graft_template_is_served_without_pyrosetta(monkeypatch):
+    monkeypatch.setattr(graft_engine, "PYROSETTA_AVAILABLE", False)
+    response = client.get("/graft/template")
+    assert response.status_code == 200
+    assert response.text.startswith(("ATOM", "HEADER", "REMARK", "HETATM"))
+
+
 def test_graft_returns_503_when_pyrosetta_unavailable(monkeypatch):
     monkeypatch.setattr(graft_engine, "PYROSETTA_AVAILABLE", False)
     response = client.post("/graft", json={"sequence": V10_OPTIMIZED, "scan_all": True})

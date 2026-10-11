@@ -125,6 +125,14 @@ async def run_graft(request: GraftRequest) -> GraftResponse:
         raise ApiError("NO_VALID_POSITIONS", str(e))
 
 
+@router.get("/graft/template")
+def graft_template():
+    """The bundled lucCage template, for the structure viewer. Needs no PyRosetta."""
+    from importlib.resources import files
+    return FileResponse(str(files("lockr.data").joinpath("lucCage_template_clean.pdb")),
+                        media_type="chemical/x-pdb")
+
+
 @router.get("/graft/download/{job_id}")
 def download_graft(job_id: str):
     _sweep_expired_jobs()

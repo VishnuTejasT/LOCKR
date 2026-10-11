@@ -729,6 +729,7 @@ function graftReadRequest() {
 }
 
 function graftReset() {
+  lockrViewer.showTemplate();
   scanEl("graft-progress").style.display = "none";
   scanEl("graft-error").style.display = "none";
   scanEl("graft-results").style.display = "none";
@@ -804,6 +805,7 @@ function graftRenderResults(data, usingSequence) {
   );
 
   graftState.jobId = data.job_id;
+  lockrViewer.showGraft(`${API_BASE}/graft/download/${data.job_id}`, binderStart, binderEnd);
 
   const sendBtn = scanEl("graft-kck-send-btn");
   if ((data.verdict === "good" || data.verdict === "marginal") && graftState.kckNm !== null) {

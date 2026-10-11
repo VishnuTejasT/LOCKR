@@ -716,6 +716,11 @@ function initCalculator() {
 
   calcEl("calc-submit").addEventListener("click", calcSubmit);
   calcEl("calc-reset").addEventListener("click", calcReset);
+  calcEl("calc-send-temperature").addEventListener("click", () => {
+    const v = calcReadFields();
+    if (Object.keys(calcValidate(v)).length) { showToast("Fix the highlighted fields first."); return; }
+    twLoadFromCalculator(v);
+  });
   document.addEventListener("tabchange", (e) => {
     if (e.detail.tab === "calculator") calcApplyPiped();
   });

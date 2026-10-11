@@ -2,21 +2,19 @@
 // Inline SVG on a linear temperature axis. plot.js is log-X only, so this draws its own.
 
 // Okabe-Ito: distinct under every common form of colour blindness.
-const TW_COLORS = ["#0072b2", "#d55e00", "#009e73", "#cc79a7",
-                   "#e69f00", "#56b4e9", "#8c564b", "#7f7f7f",
-                   "#117733", "#882255"];
+const TW_COLORS = ["#56b4e9", "#e69f00", "#2fd49c", "#cc79a7",
+                   "#f0e442", "#0072b2", "#d55e00", "#b0b0b0",
+                   "#7ad87a", "#c0507a"];
 
 const TW_FIELDS = ["dG_latch_cage", "dH_latch_cage", "dG_key_cage", "dH_key_cage",
-                   "key_conc", "target_conc", "t_max_stability_c"];
-const TW_BINDER_FIELDS = ["name", "sequence", "dG_target_binder", "kd_nM",
-                          "dG_target_binder_sd", "dH_target_binder", "tm_c",
-                          "graft_dG_latch_cage_shift"];
+                   "key_conc", "pull", "target_conc", "t_max_stability_c"];
+const TW_BINDER_FIELDS = ["dG_target_binder", "kd_nM"];
 
 // The API demands a binder affinity even when it cannot matter. With no target amount the
 // target is saturating and this value cancels out of the ratio, so it is inert, not a guess.
 const TW_INERT_BINDER_DG = -10.0;
 
-const twState = { data: null, request: null, placeholder: false };
+const twState = { data: null, request: null };
 
 function twEl(id) {
   return document.getElementById(id);
@@ -63,7 +61,7 @@ function twAddConstruct(values) {
       <input data-f="dG_latch_cage" type="number" step="any" placeholder="-4">
     </div>
     <div class="field-row">
-      <label>Key grip <span class="unit-suffix">kcal/mol</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">How tightly the glowing key holds the open cage. More negative = tighter grip = brighter. Around -10.9 is the standard lucCage value. Required.</span></span></label>
+      <label>Key affinity <span class="unit-suffix">kcal/mol</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">How tightly the glowing key holds the open cage. More negative = tighter binding = brighter. Around -10.9 is the standard lucCage value. Required.</span></span></label>
       <input data-f="dG_key_cage" type="number" step="any" placeholder="-10.9">
     </div>
 
@@ -93,11 +91,11 @@ function twAddConstruct(values) {
       <summary>More options for this construct</summary>
       <div class="card">
         <div class="field-row">
-          <label>Cage heat response, &Delta;H <span class="unit-suffix">kcal/mol</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">Heat released when the cage closes. This is what makes the cage temperature-sensitive. Blank means it is drawn from the placeholder prior.</span></span></label>
+          <label>Cage heat response, &Delta;H <span class="unit-suffix">kcal/mol</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">Heat released when the cage closes. This is what makes the cage temperature-sensitive. Blank means it is drawn from an assumed range, since none is published for lucCage.</span></span></label>
           <input data-f="dH_latch_cage" type="number" step="any" placeholder="drawn from prior">
         </div>
         <div class="field-row">
-          <label>Key-grip heat response, &Delta;H <span class="unit-suffix">kcal/mol</span></label>
+          <label>Key-cage heat response, &Delta;H <span class="unit-suffix">kcal/mol</span></label>
           <input data-f="dH_key_cage" type="number" step="any" placeholder="drawn from prior">
         </div>
         <div class="field-row">
@@ -105,32 +103,12 @@ function twAddConstruct(values) {
           <input data-f="key_conc" type="number" step="any" min="0" placeholder="500">
         </div>
         <div class="field-row">
+          <label>Target pull strength<span class="help-tip" tabindex="0">?<span class="help-tip-body">How hard the target pries the cage open. 10 means about 10x more likely to open. Leave blank for 10.</span></span></label>
+          <input data-f="pull" type="number" step="any" min="0" placeholder="10">
+        </div>
+        <div class="field-row">
           <label>Falls apart above <span class="unit-suffix">°C</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">Highest temperature the construct survives. Above it the design is scored as not working at all.</span></span></label>
           <input data-f="t_max_stability_c" type="number" step="any" min="0" max="100" placeholder="optional">
-        </div>
-        <div class="field-row">
-          <label>Binder name</label>
-          <input data-b="name" type="text" placeholder="binder 1">
-        </div>
-        <div class="field-row">
-          <label>Binder sequence<span class="help-tip" tabindex="0">?<span class="help-tip-body">Written down for your records and shown in the legend. It is never used to predict anything.</span></span></label>
-          <input data-b="sequence" type="text" placeholder="optional, for your records">
-        </div>
-        <div class="field-row">
-          <label>How unsure is the binder strength? <span class="unit-suffix">kcal/mol</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">A docking score deserves a wide spread (1.5 or more); an ITC measurement deserves a narrow one.</span></span></label>
-          <input data-b="dG_target_binder_sd" type="number" step="any" min="0" placeholder="1.5">
-        </div>
-        <div class="field-row">
-          <label>Binder heat response, &Delta;H <span class="unit-suffix">kcal/mol</span></label>
-          <input data-b="dH_target_binder" type="number" step="any" placeholder="drawn from prior">
-        </div>
-        <div class="field-row">
-          <label>Binder falls apart above <span class="unit-suffix">°C</span></label>
-          <input data-b="tm_c" type="number" step="any" min="0" max="100" placeholder="optional">
-        </div>
-        <div class="field-row">
-          <label>Grafting loosens the cage by <span class="unit-suffix">kcal/mol</span><span class="help-tip" tabindex="0">?<span class="help-tip-body">How much attaching this binder changes the cage's closing energy. Positive loosens it and raises background glow. 0 assumes grafting is free.</span></span></label>
-          <input data-b="graft_dG_latch_cage_shift" type="number" step="any" placeholder="0">
         </div>
       </div>
     </details>`;
@@ -172,12 +150,7 @@ function twReadConstruct(row) {
   TW_FIELDS.forEach((f) => { system[f] = twNum(row.querySelector(`[data-f="${f}"]`)); });
 
   const binder = {};
-  const nameInput = row.querySelector('[data-b="name"]');
-  const seqInput = row.querySelector('[data-b="sequence"]');
-  binder.name = nameInput.value.trim() || null;
-  binder.sequence = seqInput.value.trim() || null;
-  TW_BINDER_FIELDS.filter((f) => f !== "name" && f !== "sequence")
-    .forEach((f) => { binder[f] = twNum(row.querySelector(`[data-b="${f}"]`)); });
+  TW_BINDER_FIELDS.forEach((f) => { binder[f] = twNum(row.querySelector(`[data-b="${f}"]`)); });
   if (!row.querySelector(".tw-binder-toggle").checked) {
     binder.dG_target_binder = TW_INERT_BINDER_DG;
     binder.kd_nM = null;
@@ -286,8 +259,9 @@ function twAxes(svg, { width, height, pad, xMin, xMax, yMin, yMax, yTicks, yLabe
                               fill: "var(--text-muted)", "text-anchor": "middle" });
   xl.textContent = xLabel;
   svg.appendChild(xl);
-  const yl = twMake("text", { x: 10, y: pad.top + 10, "font-size": 11,
-                              fill: "var(--text-muted)" });
+  const yMid = pad.top + plotH / 2;
+  const yl = twMake("text", { x: 12, y: yMid, "font-size": 11, "text-anchor": "middle",
+                              transform: `rotate(-90 12 ${yMid})`, fill: "var(--text-muted)" });
   yl.textContent = yLabel;
   svg.appendChild(yl);
   return { xToPx, yToPx, plotH, plotW };
@@ -308,7 +282,7 @@ function twDrawPWorks() {
   const height = 240;
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
 
-  const pad = { left: 50, right: 14, top: 16, bottom: 32 };
+  const pad = { left: 58, right: 14, top: 16, bottom: 32 };
   const ax = twAxes(svg, { width, height, pad, xMin: temps[0], xMax: temps[temps.length - 1],
                            yMin: 0, yMax: 1, yTicks: [0, 0.25, 0.5, 0.75, 1],
                            yLabel: "chance it works", xLabel: "temperature (°C)" });
@@ -362,7 +336,7 @@ function twDrawFoldChange() {
   // fold change starts at 1 (no change), matching plot.js
   const yMin = Math.min(1, lows.length ? Math.min(...lows) : 1);
 
-  const pad = { left: 50, right: 14, top: 16, bottom: 32 };
+  const pad = { left: 58, right: 14, top: 16, bottom: 32 };
   const ax = twAxes(svg, { width, height, pad, xMin: temps[0], xMax: temps[temps.length - 1],
                            yMin, yMax,
                            yTicks: [yMin, (yMin + yMax) / 2, yMax],
@@ -411,7 +385,7 @@ function twRenderLegend() {
   twEl("tw-legend").innerHTML = twState.data.systems.map((s, i) => `
     <span class="tw-legend-item">
       <span class="tw-swatch" style="background:${TW_COLORS[i % TW_COLORS.length]}"></span>
-      ${twEscape(s.name)} / ${twEscape(s.binder_name)}
+      ${twEscape(s.name)}
     </span>`).join("");
 }
 
@@ -435,7 +409,6 @@ function twRenderTable() {
   const rows = twState.data.systems.map((s, i) => `
     <tr>
       <td><span class="tw-swatch" style="background:${TW_COLORS[i % TW_COLORS.length]}"></span>${twEscape(s.name)}</td>
-      <td>${twEscape(s.binder_name)}</td>
       <td>${s.t_opt_c === null ? "N/A" : `${twFmt(s.t_opt_c, 3)}°C`}</td>
       <td>${twWindowText(s)}</td>
       <td>${s.peak_median_fc === null ? "N/A" : `${twFmt(s.peak_median_fc, 3)}×`}</td>
@@ -447,13 +420,13 @@ function twRenderTable() {
     </tr>`).join("");
 
   twEl("tw-table").innerHTML = `
-    <table class="batch-table">
+    <div class="tw-table-scroll"><table class="batch-table">
       <thead><tr>
-        <th>Construct</th><th>Binder</th><th>Best temp</th><th>Working window</th>
+        <th>Construct</th><th>Best temp</th><th>Working window</th>
         <th>Peak jump</th><th>Latch-Cage &Delta;G</th><th>Stability cap</th><th>Edge</th>
       </tr></thead>
       <tbody>${rows}</tbody>
-    </table>`;
+    </table></div>`;
 }
 
 function twRenderNoWindow() {
@@ -466,7 +439,7 @@ function twRenderNoWindow() {
   box.style.display = "block";
   box.innerHTML = failed.map((s) => `
     <p><strong>No reliable window at this threshold</strong> for
-    ${twEscape(s.name)} / ${twEscape(s.binder_name)}. ${twEscape(s.reason)}</p>`).join("");
+    ${twEscape(s.name)}. ${twEscape(s.reason)}</p>`).join("");
 }
 
 function twBinderModeOn() {
@@ -510,36 +483,31 @@ function twRender() {
     <ul>${[...new Set(data.notes.map(twNote))].map((n) => `<li>${twEscape(n)}</li>`).join("")}</ul>`;
 }
 
-// --- preset ---------------------------------------------------------------------------
+// --- from the Calculator ---------------------------------------------------------------
 
-async function twLoadPreset() {
-  let preset;
-  try {
-    const response = await fetch("/api/temperature/window/preset");
-    preset = await response.json();
-  } catch (err) {
-    showToast("Could not load the example.");
-    return;
-  }
-  const request = preset.request;
+// Calculator constants -> the free energies this view wants, at 25 C (dG = RT ln K).
+// dH cannot come from a single-temperature K, so it stays blank and is drawn from the priors.
+function twLoadFromCalculator(v) {
+  const RT = 0.0019872041 * 298.15;
+  const dG = (kNm) => RT * Math.log(kNm * 1e-9);
   twEl("tw-constructs").innerHTML = "";
-  request.systems.forEach((s) => twAddConstruct(s));
+  const row = twAddConstruct({
+    name: "From calculator",
+    dG_latch_cage: roundSig(RT * Math.log(v.k_open), 4),
+    dG_key_cage: roundSig(dG(v.k_ck), 4),
+    key_conc: v.luckey,
+    pull: v.pull,
+  });
+  if (v.k_target !== null && v.target_conc !== null) {
+    const toggle = row.querySelector(".tw-binder-toggle");
+    toggle.checked = true;
+    row.querySelector(".tw-binder").hidden = false;
+    row.querySelector('[data-b="kd_nM"]').value = v.k_target;
+    row.querySelector('[data-f="target_conc"]').value = v.target_conc;
+  }
   twRenumberConstructs();
-
-  twEl("tw-t-min").value = request.t_min_c;
-  twEl("tw-t-max").value = request.t_max_c;
-  twEl("tw-t-step").value = request.t_step_c;
-  twEl("tw-t-ref").value = request.t_ref_c;
-  twEl("tw-fc-threshold").value = request.fc_threshold;
-  twEl("tw-confidence").value = request.confidence;
-  twEl("tw-n-samples").value = request.n_samples;
-  twEl("tw-seed").value = "";
-
-  twState.placeholder = Boolean(preset.placeholder);
-  const badge = twEl("tw-placeholder-badge");
-  badge.style.display = twState.placeholder ? "inline-block" : "none";
-  badge.textContent = preset.badge || "Example values, replace with real data";
-  badge.title = `Placeholder fields: ${(preset.placeholder_fields || []).join(", ")}`;
+  twEl("tw-t-ref").value = 25;
+  showTab("temperature");
 }
 
 // --- wiring ---------------------------------------------------------------------------
@@ -554,7 +522,6 @@ function initTemperatureWindow() {
     twAddConstruct();
     twRenumberConstructs();
   });
-  twEl("tw-load-preset").addEventListener("click", twLoadPreset);
   twEl("tw-submit").addEventListener("click", () => twRun());
   twEl("tw-rerun-seed").addEventListener("click", () => {
     if (!twState.data) return;
@@ -584,3 +551,5 @@ function initTemperatureWindow() {
 }
 
 document.addEventListener("DOMContentLoaded", initTemperatureWindow);
+
+window.twLoadFromCalculator = twLoadFromCalculator;
